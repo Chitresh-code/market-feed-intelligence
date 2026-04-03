@@ -1,0 +1,52 @@
+{
+  "id": "C004",
+  "name": "Tata Strategic Opportunities",
+  "persona": "inst_fund",
+  "mandate": "Fixed Income and Macro",
+  "client_profile": "Conservative institutional mandate with macro and fixed-income focus, where capital preservation, rates direction, and policy signalling matter more than equity upside capture.",
+  "risk_rating": "Moderate",
+  "relationship_since": "2020-06-18",
+  "last_meeting": "2026-03-27",
+  "next_meeting": "2026-04-04T10:00:00+05:30",
+  "meeting_context": "Pre-investment committee discussion on duration stance and whether to maintain a defensive posture ahead of key macro prints.",
+  "primary_objective": "Protect capital and preserve yield discipline while adjusting duration and liquidity prudently.",
+  "communication_style": "Measured, macro-first, and risk-conscious. Prefers explicit downside framing and policy interpretation.",
+  "decision_lens": "Rates, policy expectations, duration risk, liquidity buffers, and macro spillover into defensive allocation.",
+  "key_concerns": [
+    "Direction of yields and duration risk",
+    "Rupee and external risk affecting local macro conditions",
+    "Whether equity weakness could spill into broader allocation risk"
+  ],
+  "watchlist": [
+    "DGS10",
+    "DEXINUS",
+    "^NSEI"
+  ],
+  "rm_notes": "Primary concern is rates and capital preservation. Equity comments should only appear if they affect the macro framing or allocation drift discussion, and policy language should be precise rather than promotional.",
+  "allocations": [
+    {
+      "sector": "Indian Equities",
+      "ticker": "^NSEI",
+      "weight": 0.2,
+      "key_holdings": []
+    },
+    {
+      "sector": "G-Sec Sovereign",
+      "ticker": "GILT5YBEES.NS",
+      "weight": 0.4,
+      "key_holdings": []
+    },
+    {
+      "sector": "Corporate Bonds",
+      "ticker": "EBBETF0430.NS",
+      "weight": 0.2,
+      "key_holdings": []
+    },
+    {
+      "sector": "Liquid Funds",
+      "ticker": "LIQUIDBEES.NS",
+      "weight": 0.2,
+      "key_holdings": []
+    }
+  ]
+}

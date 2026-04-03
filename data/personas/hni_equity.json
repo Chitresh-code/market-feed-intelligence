@@ -1,0 +1,33 @@
+{
+  "id": "hni_equity",
+  "label": "HNI Equity",
+  "section_order": [
+    "Market Pulse",
+    "Client-Relevant Signals",
+    "Global Linkages",
+    "Talking Points"
+  ],
+  "category_weights": {
+    "sector_proxy_market": 0.35,
+    "market_index": 0.15,
+    "macro_series": 0.1,
+    "sector_proxy_fundamental": 0.15,
+    "news_event_signal": 0.15,
+    "correlation_signal": 0.1
+  },
+  "tone_rules": [
+    "Lead with portfolio relevance before broad market narrative.",
+    "Keep language direct and numerically grounded.",
+    "Highlight what matters for today's client conversation."
+  ],
+  "preferred_narrative_style": "Concise, confident, and allocation-aware.",
+  "prohibited_claim_patterns": [
+    "Do not invent portfolio values or returns.",
+    "Do not make unsupported causal statements.",
+    "Do not provide investment advice."
+  ],
+  "fallback_rules": [
+    "If sector proxy data is stale, lead with broad market and macro context.",
+    "If relevant news is unavailable, omit event claims rather than generalize."
+  ]
+}

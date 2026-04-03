@@ -1,0 +1,69 @@
+{
+  "id": "C001",
+  "name": "Arjun Mehta",
+  "persona": "hni_equity",
+  "mandate": "Growth",
+  "client_profile": "Second-generation business owner and active HNI equity investor who tracks markets daily and expects the RM to connect global overnight moves to his portfolio before the opening bell.",
+  "risk_rating": "Moderate-High",
+  "relationship_since": "2019-03-15",
+  "last_meeting": "2026-03-20",
+  "next_meeting": "2026-04-02T11:00:00+05:30",
+  "meeting_context": "Quarter-start review call focused on whether to redeploy part of his cash buffer into technology and mid-cap names after recent volatility.",
+  "primary_objective": "Capture equity upside while preserving flexibility to add on weakness in preferred sectors.",
+  "communication_style": "Direct, concise, and numerically grounded. Prefers brief market interpretation over generic commentary.",
+  "decision_lens": "Portfolio performance, sector rotation, and timing of incremental deployment.",
+  "key_concerns": [
+    "US technology spillover into Indian IT",
+    "Whether elevated volatility creates a better entry point",
+    "How much cash to keep versus redeploy"
+  ],
+  "watchlist": [
+    "INFY.NS",
+    "TCS.NS",
+    "HDFCBANK.NS",
+    "^CNXIT"
+  ],
+  "rm_notes": "Prefers concise morning briefs and wants the RM to lead with what US technology, yields, and market tone mean for his IT and financials exposure today.",
+  "allocations": [
+    {
+      "sector": "Nifty IT",
+      "ticker": "NIFTYIT.NS",
+      "weight": 0.25,
+      "key_holdings": [
+        "INFY.NS",
+        "TCS.NS",
+        "WIPRO.NS"
+      ]
+    },
+    {
+      "sector": "Nifty Bank",
+      "ticker": "^NSEBANK",
+      "weight": 0.2,
+      "key_holdings": [
+        "HDFCBANK.NS",
+        "ICICIBANK.NS"
+      ]
+    },
+    {
+      "sector": "Nifty FMCG",
+      "ticker": "HINDUNILVR.NS",
+      "weight": 0.15,
+      "key_holdings": [
+        "HINDUNILVR.NS",
+        "ITC.NS"
+      ]
+    },
+    {
+      "sector": "Nifty Midcap 100",
+      "ticker": "MID150BEES.NS",
+      "weight": 0.25,
+      "key_holdings": []
+    },
+    {
+      "sector": "Cash",
+      "ticker": null,
+      "weight": 0.15,
+      "key_holdings": []
+    }
+  ]
+}

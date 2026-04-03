@@ -1,0 +1,72 @@
+{
+  "id": "C002",
+  "name": "Priya Kapoor",
+  "persona": "hni_equity",
+  "mandate": "Strategic Thematic",
+  "client_profile": "Entrepreneurial HNI with a thematic investing mindset who prefers differentiated idea flow around India capex, PSU reform, and domestic demand rather than a broad market summary.",
+  "risk_rating": "Moderate",
+  "relationship_since": "2021-08-01",
+  "last_meeting": "2026-03-28",
+  "next_meeting": "2026-04-02T14:30:00+05:30",
+  "meeting_context": "Follow-up discussion after a thematic portfolio rebalance toward infrastructure and domestic consumption beneficiaries.",
+  "primary_objective": "Compound returns through high-conviction thematic allocations linked to policy support and domestic growth.",
+  "communication_style": "Theme-first, insight-led, and impatient with generic macro commentary unless it changes the thesis.",
+  "decision_lens": "Policy tailwinds, domestic growth durability, and whether sector leadership is broadening or narrowing.",
+  "key_concerns": [
+    "Sustainability of the capex and infra cycle",
+    "Whether PSU momentum is still justified",
+    "How global risk tone affects domestic thematic leadership"
+  ],
+  "watchlist": [
+    "LT.NS",
+    "NTPC.NS",
+    "SBIN.NS",
+    "NIFTYCONSUM.NS"
+  ],
+  "rm_notes": "Tracks infrastructure, PSU, and domestic consumption themes closely and expects differentiated talking points rather than a generic market recap. She wants the RM to explain whether global cues change the thesis for her domestic themes.",
+  "allocations": [
+    {
+      "sector": "Nifty Infrastructure",
+      "ticker": "LT.NS",
+      "weight": 0.25,
+      "key_holdings": [
+        "LT.NS",
+        "NTPC.NS",
+        "POWERGRID.NS"
+      ]
+    },
+    {
+      "sector": "Nifty PSU Bank",
+      "ticker": "SBIN.NS",
+      "weight": 0.15,
+      "key_holdings": [
+        "SBIN.NS",
+        "BANKBARODA.NS"
+      ]
+    },
+    {
+      "sector": "Nifty India Consumption",
+      "ticker": "TITAN.NS",
+      "weight": 0.2,
+      "key_holdings": [
+        "TITAN.NS",
+        "MARUTI.NS"
+      ]
+    },
+    {
+      "sector": "Nifty IT",
+      "ticker": "NIFTYIT.NS",
+      "weight": 0.25,
+      "key_holdings": [
+        "HCLTECH.NS",
+        "TECHM.NS"
+      ]
+    },
+    {
+      "sector": "Cash",
+      "ticker": null,
+      "weight": 0.15,
+      "key_holdings": []
+    }
+  ]
+}

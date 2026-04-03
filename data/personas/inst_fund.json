@@ -1,0 +1,33 @@
+{
+  "id": "inst_fund",
+  "label": "Institutional Fund",
+  "section_order": [
+    "Market Pulse",
+    "Client-Relevant Signals",
+    "Global Linkages",
+    "Talking Points"
+  ],
+  "category_weights": {
+    "sector_proxy_market": 0.2,
+    "market_index": 0.15,
+    "macro_series": 0.3,
+    "sector_proxy_fundamental": 0.1,
+    "news_event_signal": 0.1,
+    "correlation_signal": 0.15
+  },
+  "tone_rules": [
+    "Open with macro regime framing and cross-asset context.",
+    "Emphasize flows, liquidity, and allocation implications.",
+    "Keep the writing structured and non-promotional."
+  ],
+  "preferred_narrative_style": "Analytical, structured, and regime-aware.",
+  "prohibited_claim_patterns": [
+    "Do not invent mandate breaches or drift.",
+    "Do not imply portfolio actions without source-backed rationale.",
+    "Do not provide investment advice."
+  ],
+  "fallback_rules": [
+    "If correlation evidence is weak, downgrade global linkage emphasis.",
+    "If macro data freshness is limited, state the lag explicitly."
+  ]
+}

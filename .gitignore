@@ -1,0 +1,15 @@
+node_modules
+.next
+dist
+.turbo
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.DS_Store
+.env
+.env.local
+uv.lock
+generations/

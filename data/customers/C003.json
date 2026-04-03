@@ -1,0 +1,59 @@
+{
+  "id": "C003",
+  "name": "Macquarie India Growth Fund",
+  "persona": "inst_fund",
+  "mandate": "Multi-Asset Growth",
+  "client_profile": "Institutional multi-asset fund overseen by a Head of Wealth who evaluates market moves through macro regime, cross-asset relative value, and allocation discipline rather than stock-specific headlines.",
+  "risk_rating": "Balanced",
+  "relationship_since": "2018-01-10",
+  "last_meeting": "2026-03-25",
+  "next_meeting": "2026-04-03T09:30:00+05:30",
+  "meeting_context": "Monthly asset allocation review focused on whether recent rates and commodity moves justify rebalancing between equity beta and defensive sleeves.",
+  "primary_objective": "Maintain balanced multi-asset growth while responding early to regime shifts across rates, FX, equities, and commodities.",
+  "communication_style": "Analytical and structured. Starts with regime framing and expects allocation implications to be explicit.",
+  "decision_lens": "Macro regime, cross-asset correlations, and portfolio drift against strategic allocation bands.",
+  "key_concerns": [
+    "US yields and dollar strength affecting EM flows",
+    "Commodity trend impact on the portfolio mix",
+    "Whether current signals justify adjusting equity risk"
+  ],
+  "watchlist": [
+    "^NSEI",
+    "DGS10",
+    "DEXINUS",
+    "GC=F"
+  ],
+  "rm_notes": "Wants regime framing first, then any sector comments. Prefers direct linkage between rates, flows, commodities, and allocation implications, and dislikes stock-level noise unless it affects positioning.",
+  "allocations": [
+    {
+      "sector": "Nifty 50",
+      "ticker": "^NSEI",
+      "weight": 0.3,
+      "key_holdings": []
+    },
+    {
+      "sector": "Sectoral Equities",
+      "ticker": "SUNPHARMA.NS",
+      "weight": 0.15,
+      "key_holdings": []
+    },
+    {
+      "sector": "Government Bonds",
+      "ticker": "GILT5YBEES.NS",
+      "weight": 0.2,
+      "key_holdings": []
+    },
+    {
+      "sector": "Corporate Credit",
+      "ticker": "EBBETF0430.NS",
+      "weight": 0.1,
+      "key_holdings": []
+    },
+    {
+      "sector": "Commodities",
+      "ticker": "GC=F",
+      "weight": 0.25,
+      "key_holdings": []
+    }
+  ]
+}

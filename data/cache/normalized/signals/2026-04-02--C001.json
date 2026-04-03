@@ -1,0 +1,207 @@
+{
+  "bundle_id": "2026-04-02--C001",
+  "customer_id": "C001",
+  "persona_id": "hni_equity",
+  "date": "2026-04-02",
+  "generated_at": "2026-04-03T09:42:39.175162+00:00",
+  "signals": [
+    {
+      "signal_id": "C001::^CNXIT::2026-04-02T00:00:00",
+      "category": "sector_proxy_market",
+      "label": "Nifty IT",
+      "source": "yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.25,
+      "persona_weight": 0.35,
+      "confidence": 0.9,
+      "narrative": "Nifty IT closed at 30441.45. 1D move: +2.60%. 5D move: +2.67%."
+    },
+    {
+      "signal_id": "C001::MID150BEES.NS::2026-04-02T00:00:00",
+      "category": "sector_proxy_market",
+      "label": "Midcap 150 ETF proxy",
+      "source": "yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.25,
+      "persona_weight": 0.35,
+      "confidence": 0.9,
+      "narrative": "Midcap 150 ETF proxy closed at 204.92. 1D move: -1.20%. 5D move: -0.58%."
+    },
+    {
+      "signal_id": "C001::fundamental-proxy::^CNXIT::2026-04-02T00:00:00",
+      "category": "sector_proxy_fundamental",
+      "label": "Nifty IT proxy read-through",
+      "source": "derived_from_yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.25,
+      "persona_weight": 0.15,
+      "confidence": 0.55,
+      "narrative": "Nifty IT is being used as a sector proxy read-through for the POC. Its 5D move is +2.67%, which helps frame sector strength until a richer sector-fundamental source is added."
+    },
+    {
+      "signal_id": "C001::fundamental-proxy::MID150BEES.NS::2026-04-02T00:00:00",
+      "category": "sector_proxy_fundamental",
+      "label": "Midcap 150 ETF proxy proxy read-through",
+      "source": "derived_from_yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.25,
+      "persona_weight": 0.15,
+      "confidence": 0.55,
+      "narrative": "Midcap 150 ETF proxy is being used as a sector proxy read-through for the POC. Its 5D move is -0.58%, which helps frame sector strength until a richer sector-fundamental source is added."
+    },
+    {
+      "signal_id": "C001::correlation::XLK::^CNXIT",
+      "category": "correlation_signal",
+      "label": "US technology to Nifty IT linkage",
+      "source": "precomputed_correlation_job",
+      "as_of": "2026-04-03T09:42:39.174559+00:00",
+      "customer_relevance": 0.796,
+      "persona_weight": 0.1,
+      "confidence": 0.9,
+      "narrative": "US technology leadership remains the strongest external read-through for India IT exposure in this client mix."
+    },
+    {
+      "signal_id": "C001::news::7737672",
+      "category": "news_event_signal",
+      "label": "BOJ to raise rates with eye on Iran war fallout, central bank official says - Reuters",
+      "source": "finnhub",
+      "as_of": "2026-04-03T04:00:00+00:00",
+      "customer_relevance": 0.68,
+      "persona_weight": 0.15,
+      "confidence": 0.7,
+      "narrative": "Reuters published a potentially relevant catalyst: BOJ to raise rates with eye on Iran war fallout, central bank official says - Reuters."
+    },
+    {
+      "signal_id": "C001::XLK::2026-04-02T00:00:00",
+      "category": "sector_proxy_market",
+      "label": "Technology Select Sector SPDR",
+      "source": "yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.225,
+      "persona_weight": 0.35,
+      "confidence": 0.9,
+      "narrative": "Technology Select Sector SPDR closed at 135.99. 1D move: +0.80%. 5D move: +2.63%."
+    },
+    {
+      "signal_id": "C001::fundamental-proxy::XLK::2026-04-02T00:00:00",
+      "category": "sector_proxy_fundamental",
+      "label": "Technology Select Sector SPDR proxy read-through",
+      "source": "derived_from_yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.225,
+      "persona_weight": 0.15,
+      "confidence": 0.55,
+      "narrative": "Technology Select Sector SPDR is being used as a sector proxy read-through for the POC. Its 5D move is +2.63%, which helps frame sector strength until a richer sector-fundamental source is added."
+    },
+    {
+      "signal_id": "C001::^NSEBANK::2026-04-02T00:00:00",
+      "category": "sector_proxy_market",
+      "label": "Nifty Bank",
+      "source": "yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.2,
+      "persona_weight": 0.35,
+      "confidence": 0.9,
+      "narrative": "Nifty Bank closed at 51548.75. 1D move: +0.19%. 5D move: -2.01%."
+    },
+    {
+      "signal_id": "C001::fundamental-proxy::^NSEBANK::2026-04-02T00:00:00",
+      "category": "sector_proxy_fundamental",
+      "label": "Nifty Bank proxy read-through",
+      "source": "derived_from_yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.2,
+      "persona_weight": 0.15,
+      "confidence": 0.55,
+      "narrative": "Nifty Bank is being used as a sector proxy read-through for the POC. Its 5D move is -2.01%, which helps frame sector strength until a richer sector-fundamental source is added."
+    },
+    {
+      "signal_id": "C001::news::7734275",
+      "category": "news_event_signal",
+      "label": "IEA, IMF and World Bank to coordinate response to Middle East war's impact - Reuters",
+      "source": "finnhub",
+      "as_of": "2026-04-01T18:59:01+00:00",
+      "customer_relevance": 0.54,
+      "persona_weight": 0.15,
+      "confidence": 0.7,
+      "narrative": "Reuters published a potentially relevant catalyst: IEA, IMF and World Bank to coordinate response to Middle East war's impact - Reuters."
+    },
+    {
+      "signal_id": "C001::news::7731159",
+      "category": "news_event_signal",
+      "label": "Dubai leads Gulf stocks higher on hopes of de-escalation in Iran war - Reuters",
+      "source": "finnhub",
+      "as_of": "2026-04-01T13:41:02+00:00",
+      "customer_relevance": 0.54,
+      "persona_weight": 0.15,
+      "confidence": 0.7,
+      "narrative": "Reuters published a potentially relevant catalyst: Dubai leads Gulf stocks higher on hopes of de-escalation in Iran war - Reuters."
+    },
+    {
+      "signal_id": "C001::DEXINUS::2026-03-27T00:00:00",
+      "category": "macro_series",
+      "label": "Indian Rupees to USD Spot Rate",
+      "source": "fredapi",
+      "as_of": "2026-03-27T00:00:00",
+      "customer_relevance": 0.65,
+      "persona_weight": 0.1,
+      "confidence": 0.85,
+      "narrative": "Indian Rupees to USD Spot Rate is at 94.83 INR per USD. Daily delta: +0.86."
+    },
+    {
+      "signal_id": "C001::correlation::DGS10::^NSEI",
+      "category": "correlation_signal",
+      "label": "US rates to India risk appetite",
+      "source": "precomputed_correlation_job",
+      "as_of": "2026-04-03T09:42:39.174559+00:00",
+      "customer_relevance": 0.684,
+      "persona_weight": 0.1,
+      "confidence": 0.75,
+      "narrative": "Higher US long-end yields remain a headwind for India risk appetite and valuation support."
+    },
+    {
+      "signal_id": "C001::SBIN.NS::2026-04-02T00:00:00",
+      "category": "sector_proxy_market",
+      "label": "PSU Bank proxy (State Bank of India)",
+      "source": "yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.17600000000000002,
+      "persona_weight": 0.35,
+      "confidence": 0.65,
+      "narrative": "PSU Bank proxy (State Bank of India) closed at 1018.40. 1D move: +0.06%. 5D move: -1.20%."
+    },
+    {
+      "signal_id": "C001::DGS10::2026-04-01T00:00:00",
+      "category": "macro_series",
+      "label": "US 10-Year Treasury Yield",
+      "source": "fredapi",
+      "as_of": "2026-04-01T00:00:00",
+      "customer_relevance": 0.45,
+      "persona_weight": 0.1,
+      "confidence": 0.85,
+      "narrative": "US 10-Year Treasury Yield is at 4.33 %. Daily delta: +0.03."
+    },
+    {
+      "signal_id": "C001::fundamental-proxy::SBIN.NS::2026-04-02T00:00:00",
+      "category": "sector_proxy_fundamental",
+      "label": "PSU Bank proxy (State Bank of India) proxy read-through",
+      "source": "derived_from_yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.17600000000000002,
+      "persona_weight": 0.15,
+      "confidence": 0.55,
+      "narrative": "PSU Bank proxy (State Bank of India) is being used as a sector proxy read-through for the POC. Its 5D move is -1.20%, which helps frame sector strength until a richer sector-fundamental source is added."
+    },
+    {
+      "signal_id": "C001::HINDUNILVR.NS::2026-04-02T00:00:00",
+      "category": "sector_proxy_market",
+      "label": "FMCG proxy (Hindustan Unilever)",
+      "source": "yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.15,
+      "persona_weight": 0.35,
+      "confidence": 0.65,
+      "narrative": "FMCG proxy (Hindustan Unilever) closed at 2065.30. 1D move: +0.03%. 5D move: -0.94%."
+    }
+  ]
+}

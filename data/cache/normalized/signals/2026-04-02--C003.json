@@ -1,0 +1,196 @@
+{
+  "bundle_id": "2026-04-02--C003",
+  "customer_id": "C003",
+  "persona_id": "inst_fund",
+  "date": "2026-04-02",
+  "generated_at": "2026-04-03T09:42:39.175162+00:00",
+  "signals": [
+    {
+      "signal_id": "C003::DGS10::2026-04-01T00:00:00",
+      "category": "macro_series",
+      "label": "US 10-Year Treasury Yield",
+      "source": "fredapi",
+      "as_of": "2026-04-01T00:00:00",
+      "customer_relevance": 0.8,
+      "persona_weight": 0.3,
+      "confidence": 0.85,
+      "narrative": "US 10-Year Treasury Yield is at 4.33 %. Daily delta: +0.03."
+    },
+    {
+      "signal_id": "C003::DEXINUS::2026-03-27T00:00:00",
+      "category": "macro_series",
+      "label": "Indian Rupees to USD Spot Rate",
+      "source": "fredapi",
+      "as_of": "2026-03-27T00:00:00",
+      "customer_relevance": 0.75,
+      "persona_weight": 0.3,
+      "confidence": 0.85,
+      "narrative": "Indian Rupees to USD Spot Rate is at 94.83 INR per USD. Daily delta: +0.86."
+    },
+    {
+      "signal_id": "C003::correlation::XLK::^CNXIT",
+      "category": "correlation_signal",
+      "label": "US technology to Nifty IT linkage",
+      "source": "precomputed_correlation_job",
+      "as_of": "2026-04-03T09:42:39.174559+00:00",
+      "customer_relevance": 0.796,
+      "persona_weight": 0.15,
+      "confidence": 0.9,
+      "narrative": "US technology leadership remains the strongest external read-through for India IT exposure in this client mix."
+    },
+    {
+      "signal_id": "C003::correlation::DGS10::^NSEI",
+      "category": "correlation_signal",
+      "label": "US rates to India risk appetite",
+      "source": "precomputed_correlation_job",
+      "as_of": "2026-04-03T09:42:39.174559+00:00",
+      "customer_relevance": 0.684,
+      "persona_weight": 0.15,
+      "confidence": 0.75,
+      "narrative": "Higher US long-end yields remain a headwind for India risk appetite and valuation support."
+    },
+    {
+      "signal_id": "C003::correlation::DEXINUS::^NSEI",
+      "category": "correlation_signal",
+      "label": "FX pressure to India allocation tone",
+      "source": "precomputed_correlation_job",
+      "as_of": "2026-04-03T09:42:39.174559+00:00",
+      "customer_relevance": 0.668,
+      "persona_weight": 0.15,
+      "confidence": 0.75,
+      "narrative": "A weaker rupee tends to coincide with a more defensive India allocation frame for institutional clients."
+    },
+    {
+      "signal_id": "C003::GC=F::2026-04-02T00:00:00",
+      "category": "sector_proxy_market",
+      "label": "Gold Futures",
+      "source": "yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.25,
+      "persona_weight": 0.2,
+      "confidence": 0.9,
+      "narrative": "Gold Futures closed at 4651.50. 1D move: -2.75%. 5D move: +6.31%."
+    },
+    {
+      "signal_id": "C003::fundamental-proxy::GC=F::2026-04-02T00:00:00",
+      "category": "sector_proxy_fundamental",
+      "label": "Gold Futures proxy read-through",
+      "source": "derived_from_yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.25,
+      "persona_weight": 0.1,
+      "confidence": 0.55,
+      "narrative": "Gold Futures is being used as a sector proxy read-through for the POC. Its 5D move is +6.31%, which helps frame sector strength until a richer sector-fundamental source is added."
+    },
+    {
+      "signal_id": "C003::news::7732092",
+      "category": "news_event_signal",
+      "label": "Oil prices soar, and stocks end mixed in volatile trade - Reuters",
+      "source": "finnhub",
+      "as_of": "2026-04-02T00:18:00+00:00",
+      "customer_relevance": 0.59,
+      "persona_weight": 0.1,
+      "confidence": 0.7,
+      "narrative": "Reuters published a potentially relevant catalyst: Oil prices soar, and stocks end mixed in volatile trade - Reuters."
+    },
+    {
+      "signal_id": "C003::news::7729180",
+      "category": "news_event_signal",
+      "label": "Gold extends gains on softer dollar, focus on Iran war - Reuters",
+      "source": "finnhub",
+      "as_of": "2026-04-01T14:29:41+00:00",
+      "customer_relevance": 0.59,
+      "persona_weight": 0.1,
+      "confidence": 0.7,
+      "narrative": "Reuters published a potentially relevant catalyst: Gold extends gains on softer dollar, focus on Iran war - Reuters."
+    },
+    {
+      "signal_id": "C003::news::7735926",
+      "category": "news_event_signal",
+      "label": "Near-term oil prices hit record premium over later deliveries after Trump vows more attacks on Iran - Reuters",
+      "source": "finnhub",
+      "as_of": "2026-04-02T20:09:49+00:00",
+      "customer_relevance": 0.54,
+      "persona_weight": 0.1,
+      "confidence": 0.7,
+      "narrative": "Reuters published a potentially relevant catalyst: Near-term oil prices hit record premium over later deliveries after Trump vows more attacks on Iran - Reuters."
+    },
+    {
+      "signal_id": "C003::news::7730092",
+      "category": "news_event_signal",
+      "label": "Iran war puts Middle East Dubai oil benchmark under stress as prices soar - Reuters",
+      "source": "finnhub",
+      "as_of": "2026-04-01T14:37:00+00:00",
+      "customer_relevance": 0.54,
+      "persona_weight": 0.1,
+      "confidence": 0.7,
+      "narrative": "Reuters published a potentially relevant catalyst: Iran war puts Middle East Dubai oil benchmark under stress as prices soar - Reuters."
+    },
+    {
+      "signal_id": "C003::news::7730093",
+      "category": "news_event_signal",
+      "label": "France suspects link to pro-Iranian group in foiled BofA Paris plot - Reuters",
+      "source": "finnhub",
+      "as_of": "2026-04-01T14:11:46+00:00",
+      "customer_relevance": 0.54,
+      "persona_weight": 0.1,
+      "confidence": 0.7,
+      "narrative": "Reuters published a potentially relevant catalyst: France suspects link to pro-Iranian group in foiled BofA Paris plot - Reuters."
+    },
+    {
+      "signal_id": "C003::GILT5YBEES.NS::2026-04-02T00:00:00",
+      "category": "sector_proxy_market",
+      "label": "Government bond ETF proxy",
+      "source": "yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.2,
+      "persona_weight": 0.2,
+      "confidence": 0.9,
+      "narrative": "Government bond ETF proxy closed at 63.72. 1D move: -1.09%. 5D move: -0.53%."
+    },
+    {
+      "signal_id": "C003::fundamental-proxy::GILT5YBEES.NS::2026-04-02T00:00:00",
+      "category": "sector_proxy_fundamental",
+      "label": "Government bond ETF proxy proxy read-through",
+      "source": "derived_from_yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.2,
+      "persona_weight": 0.1,
+      "confidence": 0.55,
+      "narrative": "Government bond ETF proxy is being used as a sector proxy read-through for the POC. Its 5D move is -0.53%, which helps frame sector strength until a richer sector-fundamental source is added."
+    },
+    {
+      "signal_id": "C003::EBBETF0430.NS::2026-04-02T00:00:00",
+      "category": "sector_proxy_market",
+      "label": "Corporate bond ETF proxy",
+      "source": "yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.17600000000000002,
+      "persona_weight": 0.2,
+      "confidence": 0.65,
+      "narrative": "Corporate bond ETF proxy closed at 1549.91. 1D move: -0.15%. 5D move: -0.47%."
+    },
+    {
+      "signal_id": "C003::fundamental-proxy::EBBETF0430.NS::2026-04-02T00:00:00",
+      "category": "sector_proxy_fundamental",
+      "label": "Corporate bond ETF proxy proxy read-through",
+      "source": "derived_from_yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.17600000000000002,
+      "persona_weight": 0.1,
+      "confidence": 0.55,
+      "narrative": "Corporate bond ETF proxy is being used as a sector proxy read-through for the POC. Its 5D move is -0.47%, which helps frame sector strength until a richer sector-fundamental source is added."
+    },
+    {
+      "signal_id": "C003::SUNPHARMA.NS::2026-04-02T00:00:00",
+      "category": "sector_proxy_market",
+      "label": "Pharma proxy (Sun Pharma)",
+      "source": "yfinance",
+      "as_of": "2026-04-02T00:00:00",
+      "customer_relevance": 0.15,
+      "persona_weight": 0.2,
+      "confidence": 0.65,
+      "narrative": "Pharma proxy (Sun Pharma) closed at 1693.60. 1D move: -2.02%. 5D move: -3.41%."
+    }
+  ]
+}

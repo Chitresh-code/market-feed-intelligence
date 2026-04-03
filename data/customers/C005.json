@@ -1,0 +1,53 @@
+{
+  "id": "C005",
+  "name": "Blue River Emerging Cos.",
+  "persona": "inst_fund",
+  "mandate": "Emerging Mid-Small Cap",
+  "client_profile": "Institutional emerging companies fund with high sensitivity to liquidity, growth sentiment, and risk appetite shifts across domestic mid- and small-cap segments.",
+  "risk_rating": "High",
+  "relationship_since": "2022-02-09",
+  "last_meeting": "2026-03-29",
+  "next_meeting": "2026-04-05T15:00:00+05:30",
+  "meeting_context": "Performance and positioning review after a volatile quarter for growth-oriented mid- and small-cap exposures.",
+  "primary_objective": "Capture upside from emerging growth companies while staying alert to sentiment-driven drawdowns and liquidity shocks.",
+  "communication_style": "Concise but analytical. Wants a clear read on growth sentiment, liquidity conditions, and follow-through into smaller-cap leadership.",
+  "decision_lens": "Growth sentiment, liquidity conditions, and whether broader risk appetite supports mid- and small-cap continuation.",
+  "key_concerns": [
+    "Global risk tone spilling into domestic mid- and small-cap breadth",
+    "Liquidity conditions for smaller-cap names",
+    "Whether IT and auto leadership support broader growth sentiment"
+  ],
+  "watchlist": [
+    "MID150BEES.NS",
+    "SMALLCAP.NS",
+    "^CNXIT",
+    "MARUTI.NS"
+  ],
+  "rm_notes": "The fund is sensitive to growth sentiment and liquidity. Briefs should connect global risk tone to domestic mid-cap and small-cap follow-through, and flag whether leadership is broadening or becoming fragile.",
+  "allocations": [
+    {
+      "sector": "Nifty Midcap 100",
+      "ticker": "MID150BEES.NS",
+      "weight": 0.4,
+      "key_holdings": []
+    },
+    {
+      "sector": "Nifty Smallcap 100",
+      "ticker": "SMALLCAP.NS",
+      "weight": 0.3,
+      "key_holdings": []
+    },
+    {
+      "sector": "Nifty IT",
+      "ticker": "NIFTYIT.NS",
+      "weight": 0.15,
+      "key_holdings": []
+    },
+    {
+      "sector": "Nifty Auto",
+      "ticker": "MARUTI.NS",
+      "weight": 0.15,
+      "key_holdings": []
+    }
+  ]
+}
