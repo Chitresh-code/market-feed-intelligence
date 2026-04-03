@@ -11,3 +11,4 @@ Files:
 - `01-overview.md`: product shape, app surfaces, and user-facing behavior
 - `02-runtime-flow.md`: request flow, cache flow, and summary generation path
 - `03-operations.md`: setup, refresh, verification, and demo-day workflow
+- `04-requirements-mapping/`: section-by-section mapping from original requirement docs to current implementation and decisions
