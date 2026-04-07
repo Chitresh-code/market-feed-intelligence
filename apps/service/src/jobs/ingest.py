@@ -1,20 +1,15 @@
 from __future__ import annotations
 
 import argparse
-import json
 from datetime import datetime, timezone
-from pathlib import Path
 
-from adapters.base import AdapterError, FetchWindow
+from adapters.base import FetchWindow
 from adapters.finnhub_adapter import FinnhubNewsAdapter, FinnhubRequestSpec
 from adapters.fred_adapter import FredMacroAdapter, MacroSeriesSpec
 from adapters.yfinance_adapter import MarketTickerSpec, YFinanceMarketAdapter
-from config import load_settings
-from domain.models import CacheFileRef, CacheManifest, FreshnessMetadata, RawDatasetEnvelope
-
-
-def ensure_directory(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
+from db.session import init_db, session_scope
+from domain.models import RawDatasetEnvelope
+from services.refresh_orchestrator import RefreshOrchestrator
 
 
 def default_market_specs() -> list[MarketTickerSpec]:
@@ -54,7 +49,7 @@ def default_news_specs() -> list[FinnhubRequestSpec]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Fetch external provider data and write raw cache artifacts."
+        description="Compatibility entrypoint for the DB-backed refresh pipeline."
     )
     parser.add_argument(
         "--date",
@@ -68,52 +63,6 @@ def parse_args() -> argparse.Namespace:
         help="Lookback window used by adapters that need recent history.",
     )
     return parser.parse_args()
-
-
-def write_json(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf8")
-
-
-def build_file_ref(
-    repo_root: Path,
-    file_path: Path,
-    envelope: RawDatasetEnvelope,
-) -> CacheFileRef:
-    return CacheFileRef(
-        path=str(file_path.relative_to(repo_root)),
-        record_count=len(envelope.records),
-        generated_at=envelope.generated_at,
-        source=envelope.source,
-        date=envelope.date,
-    )
-
-
-def build_missing_freshness(generated_at: str, note: str) -> FreshnessMetadata:
-    return FreshnessMetadata(
-        status="missing",
-        generated_at=generated_at,
-        notes=[note],
-    )
-
-
-def build_fresh_freshness(envelope: RawDatasetEnvelope) -> FreshnessMetadata:
-    as_of: str | None = None
-    if envelope.records:
-        last_record = envelope.records[0]
-        as_of = (
-            last_record.get("as_of")
-            or last_record.get("published_at")
-            or envelope.generated_at
-        )
-
-    return FreshnessMetadata(
-        status="fresh",
-        as_of=as_of,
-        generated_at=envelope.generated_at,
-        notes=envelope.notes,
-    )
-
 
 def fetch_market_dataset(window: FetchWindow) -> RawDatasetEnvelope:
     adapter = YFinanceMarketAdapter()
@@ -130,77 +79,20 @@ def fetch_news_dataset(window: FetchWindow, api_key: str) -> RawDatasetEnvelope:
     return adapter.fetch(default_news_specs(), window)
 
 
-def run_ingest(cache_date: str, lookback_days: int) -> CacheManifest:
-    settings = load_settings()
-    run_at = datetime.now(timezone.utc).isoformat()
-    window = FetchWindow(date=cache_date, lookback_days=lookback_days)
-
-    for path in (
-        settings.raw_cache_root,
-        settings.normalized_cache_root,
-        settings.correlation_cache_root,
-        settings.manifest_cache_root,
-    ):
-        ensure_directory(path)
-
-    raw_market_ref: CacheFileRef | None = None
-    raw_macro_ref: CacheFileRef | None = None
-    raw_news_ref: CacheFileRef | None = None
-    freshness: dict[str, FreshnessMetadata] = {}
-
-    try:
-        market = fetch_market_dataset(window)
-        market_path = settings.raw_cache_root / "market" / f"{cache_date}.json"
-        write_json(market_path, market.model_dump(mode="json"))
-        raw_market_ref = build_file_ref(settings.repo_root, market_path, market)
-        freshness["raw_market"] = build_fresh_freshness(market)
-    except AdapterError as exc:
-        freshness["raw_market"] = build_missing_freshness(run_at, str(exc))
-
-    try:
-        macro = fetch_macro_dataset(window, settings.fred_api_key)
-        macro_path = settings.raw_cache_root / "macro" / f"{cache_date}.json"
-        write_json(macro_path, macro.model_dump(mode="json"))
-        raw_macro_ref = build_file_ref(settings.repo_root, macro_path, macro)
-        freshness["raw_macro"] = build_fresh_freshness(macro)
-    except AdapterError as exc:
-        freshness["raw_macro"] = build_missing_freshness(run_at, str(exc))
-
-    try:
-        news = fetch_news_dataset(window, settings.finnhub_api_key)
-        news_path = settings.raw_cache_root / "news" / f"{cache_date}.json"
-        write_json(news_path, news.model_dump(mode="json"))
-        raw_news_ref = build_file_ref(settings.repo_root, news_path, news)
-        freshness["raw_news"] = build_fresh_freshness(news)
-    except AdapterError as exc:
-        freshness["raw_news"] = build_missing_freshness(run_at, str(exc))
-
-    manifest = CacheManifest(
-        manifest_id=f"manifest-{cache_date}",
-        date=cache_date,
-        mode="cached_external_live_llm",
-        generated_at=run_at,
-        raw_market=raw_market_ref,
-        raw_macro=raw_macro_ref,
-        raw_news=raw_news_ref,
-        freshness=freshness,
-    )
-    manifest_path = settings.manifest_cache_root / f"{cache_date}.json"
-    write_json(manifest_path, manifest.model_dump(mode="json"))
-
-    return manifest
-
-
 def main() -> None:
     args = parse_args()
-    settings = load_settings()
-    manifest = run_ingest(cache_date=args.date, lookback_days=args.lookback_days)
-    manifest_path = settings.manifest_cache_root / f"{args.date}.json"
+    init_db()
+    with session_scope() as session:
+        result = RefreshOrchestrator(session).refresh_cache(
+            cache_date=args.date,
+            lookback_days=args.lookback_days,
+        )
 
-    print(f"Wrote manifest: {manifest_path}")
-    for dataset, metadata in manifest.freshness.items():
-        print(f"{dataset}: {metadata.status}")
-        for note in metadata.notes:
+    print("Standalone raw-ingest mode has been folded into the DB-backed refresh pipeline.")
+    print(f"Refresh completed for {args.date}")
+    for dataset, metadata in result["manifest"]["freshness"].items():
+        print(f"{dataset}: {metadata['status']}")
+        for note in metadata["notes"]:
             print(f"  note: {note}")
 
 

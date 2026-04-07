@@ -1,251 +1,80 @@
-okay# Cache Contract
+# Cache Contract
 
 ## Purpose
 
-`data/cache` is the shared contract boundary between:
+The active operational contract is no longer `data/cache`.
 
-- Python batch jobs in `apps/service`
-- Next.js API aggregation in `apps/web`
+The current runtime boundary is:
+- Python microservice in `apps/service`
+- Postgres as the operational store
+- Next.js in `apps/web` consuming Python service HTTP endpoints
 
-The contract is designed for the POC mode:
+`data/cache` should be treated as historical generated artifacts only. It is useful for reference and older demo snapshots, but it is not the runtime source of truth.
 
-- external data is cached
-- summary generation is live
-- synthetic data is limited to customers, personas, and fallback briefs
+## Active runtime contract
 
-No market, macro, news, or correlation data should be hard-coded in the web layer after this contract is implemented.
+### Python service owns
 
-## Directory layout
+- fetching market, macro, and news provider data
+- generating correlations
+- normalizing ranked signal bundles
+- persisting refresh snapshots into Postgres
+- exposing read APIs for manifests, bundles, and correlations
 
-```text
-data/cache/
-├── raw/
-│   ├── market/
-│   ├── macro/
-│   └── news/
-├── normalized/
-│   └── signals/
-├── correlations/
-└── manifests/
-```
+### Next.js owns
 
-## File naming
+- customer and persona JSON inputs
+- dashboard composition
+- evidence assembly for LLM prompts
+- live summary generation
+- export UX
+- operator-triggered refresh via Python `POST /refresh`
 
-Use one file per dataset per demo date unless a later scaling need forces sharding.
+## Postgres snapshot model
 
-### Raw cache
+The service stores date-versioned refresh snapshots rather than mutable latest-only rows.
 
-- `data/cache/raw/market/{date}.json`
-- `data/cache/raw/macro/{date}.json`
-- `data/cache/raw/news/{date}.json`
+Core tables:
+- `cache_runs`
+- `raw_market_records`
+- `raw_macro_records`
+- `raw_news_records`
+- `correlation_records`
+- `signal_bundles`
+- `normalized_signals`
+- `manifest_freshness`
 
-### Normalized signals
+Read behavior:
+- the app resolves the latest successful cache date from `cache_runs`
+- manifest, bundle, and correlation reads always resolve against the latest successful run for a requested date
 
-- `data/cache/normalized/signals/{date}--{customer_id}.json`
+## HTTP contract
 
-### Correlations
+The web app should rely on these Python service endpoints:
+- `GET /health`
+- `GET /cache/dates`
+- `GET /cache/latest`
+- `GET /manifests/{date}`
+- `GET /bundles/{date}/{customer_id}`
+- `GET /correlations/{date}`
+- `POST /refresh`
 
-- `data/cache/correlations/{date}.json`
-
-### Manifest
-
-- `data/cache/manifests/{date}.json`
-
-## Ownership by layer
-
-### Python service owns writes to
-
-- `raw/*`
-- `normalized/signals/*`
-- `correlations/*`
-- `manifests/*`
-
-### Web layer reads from
-
-- `normalized/signals/*`
-- `correlations/*`
-- `manifests/*`
-- raw artifacts only when detailed provenance is needed
-
-## Dataset responsibilities
-
-### `raw/market`
-
-Source: `yfinance`
-
-Contains:
-- indices
-- sector proxy market records
-- global proxies
-- ETF proxies used for sector linkage
-
-Required fields per record:
-- ticker
-- label
-- category
-- currency
-- close
-- source
-- as_of
-
-Optional enrichment:
-- OHLC
-- volume
-- delta_1d_pct
-- delta_5d_pct
-
-### `raw/macro`
-
-Source: `fredapi`
-
-Contains:
-- daily macro series used in the brief
-- values plus deltas when available
-
-Required fields per record:
-- series_id
-- label
-- value
-- unit
-- source
-- as_of
-
-### `raw/news`
-
-Source: `Finnhub`
-
-Contains:
-- raw news articles used to derive event-like catalysts
-
-Required fields per record:
-- article_id
-- headline
-- summary
-- source_name
-- published_at
-- url
-- source
-
-Optional enrichment:
-- categories
-- related_symbols
-
-### `normalized/signals`
-
-Scope: per customer and persona per date
-
-Contains the ranked, unified evidence set that downstream APIs use. This is where:
-- market records
-- macro records
-- sector proxy fundamentals
-- news-derived event signals
-- supporting narrative signals
-are converted into one common schema.
-
-Each file must include:
-- bundle metadata
-- customer id
-- persona id
-- date
-- generated timestamp
-- ordered signal list
-
-Each signal must include:
-- signal id
-- category
-- label
-- source
-- as_of
-- customer relevance
-- persona weight
-- confidence
-- narrative
-
-### `correlations`
-
-Scope: one date-level bundle containing all customer-eligible precomputed correlations
-
-Contains:
-- source signal
-- target signal
-- `r_value`
-- direction
-- strength
-- lookback days
-- narrative
-- source
-- as_of
-
-Weak or invalid correlations should be omitted rather than written with ambiguous placeholders.
-
-### `manifests`
-
-Purpose:
-- record what was generated for a given date
-- provide freshness and missing-data information
-- let the web layer explain stale or missing inputs cleanly
-
-Each manifest must include:
-- dataset file references
-- generation timestamps
-- freshness per dataset
-- mode fixed to `cached_external_live_llm`
+The response shapes intentionally mirror the previous file-based manifest and bundle payloads so the UI contract stays stable while the storage layer changes.
 
 ## Freshness rules
 
-For the POC, every manifest must classify each dataset as:
+Freshness is computed and persisted by the Python service, not inferred in the web layer.
 
+Every manifest dataset is classified as:
 - `fresh`
 - `stale`
 - `missing`
 
-Freshness should be derived by the Python jobs and not inferred in the web layer.
+The web app should render freshness as returned by the service.
 
-The web layer should render these states directly instead of recomputing them.
+## Historical artifact guidance
 
-## Web API consumption rules
-
-### `GET /api/dashboard-data`
-
-Reads:
-- manifest for the requested date
-- normalized bundle for the requested customer
-- correlation bundle for the requested date
-
-Returns:
-- customer contract
-- persona contract
-- top market and macro snapshot items
-- top sector proxy fundamentals
-- top news/event signals
-- top precomputed correlations
-- freshness metadata
-
-### `POST /api/summary`
-
-Reads:
-- same bundle inputs as `dashboard-data`
-- optional meeting context
-
-Builds:
-- compact evidence payload for the model
-
-Does not:
-- fetch raw external data live
-- compute correlations live
-
-## POC boundaries
-
-This cache contract intentionally excludes:
-
-- live CRM artifacts
-- holding-level fundamentals
-- forward-looking macro event calendars
-- stored model outputs as a primary cache layer
-
-The only seeded/fake content allowed under `data/` is:
-- customers
-- personas
-- fallback briefs
-
-Everything under `data/cache` should be treated as generated output from real adapters or future seeded demo-date cache runs.
+If `data/cache` exists in the repository:
+- do not rely on it for request-time reads
+- do not treat it as authoritative for the dashboard
+- only use it for historical comparison, debugging, or archival reference

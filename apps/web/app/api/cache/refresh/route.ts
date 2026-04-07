@@ -1,7 +1,3 @@
-import { spawn } from "node:child_process"
-import fs from "node:fs/promises"
-import path from "node:path"
-
 import { NextResponse } from "next/server"
 
 import { getDefaultCacheDate } from "@/lib/poc-data"
@@ -26,28 +22,6 @@ function getRefreshState() {
   }
 
   return globalState.__cacheRefreshState
-}
-
-async function loadServiceEnv(serviceDir: string) {
-  const envPath = path.join(serviceDir, ".env")
-
-  try {
-    const contents = await fs.readFile(envPath, "utf8")
-    return Object.fromEntries(
-      contents
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter((line) => line && !line.startsWith("#") && line.includes("="))
-        .map((line) => {
-          const index = line.indexOf("=")
-          const key = line.slice(0, index).trim()
-          const value = line.slice(index + 1).trim()
-          return [key, value]
-        })
-    )
-  } catch {
-    return {}
-  }
 }
 
 function parseRequestBody(value: unknown): { date?: string } {
@@ -87,43 +61,47 @@ export async function POST(request: Request) {
     state.date = date
     state.startedAt = startedAt
 
-    const serviceDir = path.join(process.cwd(), "..", "service")
-    const serviceEnv = await loadServiceEnv(serviceDir)
-    const output = await new Promise<string[]>((resolve, reject) => {
-      const child = spawn(
-        "uv",
-        ["run", "python", "-m", "jobs.refresh_cache", "--date", date],
-        {
-          cwd: serviceDir,
-          env: { ...process.env, ...serviceEnv },
-        }
-      )
+    const serviceBaseUrl = process.env.SERVICE_BASE_URL?.replace(/\/+$/, "")
+    if (!serviceBaseUrl) {
+      throw new Error("SERVICE_BASE_URL is not configured.")
+    }
 
-      const lines: string[] = []
-      child.stdout.on("data", (chunk) => {
-        lines.push(...String(chunk).split(/\r?\n/).filter(Boolean))
-      })
-      child.stderr.on("data", (chunk) => {
-        lines.push(...String(chunk).split(/\r?\n/).filter(Boolean))
-      })
-      child.on("error", reject)
-      child.on("close", (code) => {
-        if (code === 0) {
-          resolve(lines)
-          return
-        }
-        reject(new Error(lines.join("\n") || `Refresh command failed with exit code ${code}`))
-      })
+    const serviceResponse = await fetch(`${serviceBaseUrl}/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+      body: JSON.stringify({ date }),
     })
+
+    const payload = (await serviceResponse.json().catch(() => null)) as
+      | {
+          status?: string
+          date?: string
+          startedAt?: string
+          finishedAt?: string
+          output?: string[]
+          detail?: string
+        }
+      | null
+
+    if (!serviceResponse.ok) {
+      throw new Error(
+        payload?.detail ??
+          payload?.output?.join("\n") ??
+          `Refresh request failed with status ${serviceResponse.status}.`
+      )
+    }
 
     state.status = "success"
 
     return NextResponse.json({
       status: "success",
       date,
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      output,
+      startedAt: payload?.startedAt ?? startedAt,
+      finishedAt: payload?.finishedAt ?? new Date().toISOString(),
+      output: payload?.output ?? [],
     })
   } catch (error) {
     state.status = "failed"

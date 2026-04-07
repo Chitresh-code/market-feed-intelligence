@@ -5,10 +5,14 @@ description = "Python jobs and domain services for the Macquarie Sales Intellige
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "fastapi>=0.115.12",
   "fredapi>=0.5.2",
   "httpx>=0.28.1",
   "pandas>=2.2.3",
+  "psycopg[binary]>=3.2.9",
   "pydantic>=2.11.1",
+  "sqlalchemy>=2.0.40",
+  "uvicorn>=0.34.2",
   "yfinance>=0.2.54"
 ]
 

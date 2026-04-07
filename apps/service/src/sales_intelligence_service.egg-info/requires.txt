@@ -1,8 +1,0 @@
-fredapi>=0.5.2
-httpx>=0.28.1
-pandas>=2.2.3
-pydantic>=2.11.1
-yfinance>=0.2.54
-
-[dev]
-ruff>=0.11.2

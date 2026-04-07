@@ -1,22 +1,18 @@
 from __future__ import annotations
 
 import argparse
-import json
-from datetime import date, datetime, timezone
-from pathlib import Path
+from datetime import date, datetime
 from typing import Any
 
-from config import load_settings
+from db.session import init_db, session_scope
 from domain.models import (
-    CacheFileRef,
-    CacheManifest,
-    CorrelationBundle,
     CorrelationRecord,
     FreshnessMetadata,
     NormalizedSignal,
     NormalizedSignalBundle,
     TimeHorizon,
 )
+from services.refresh_orchestrator import RefreshOrchestrator
 
 
 def classify_signal_horizon(category: str, lookback_days: int = 0) -> TimeHorizon:
@@ -116,7 +112,7 @@ GENERIC_RM_TERMS = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Normalize raw cache datasets into per-customer ranked signal bundles."
+        description="Compatibility entrypoint for the DB-backed refresh pipeline."
     )
     parser.add_argument(
         "--date",
@@ -124,37 +120,12 @@ def parse_args() -> argparse.Namespace:
         help="Cache date in YYYY-MM-DD format.",
     )
     return parser.parse_args()
-
-
-def read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf8"))
-
-
-def write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf8")
-
-
 def requested_date(value: str) -> date:
     return date.fromisoformat(value)
 
 
 def parse_iso_to_date(value: str) -> date:
     return datetime.fromisoformat(value).date()
-
-
-def load_customers(settings_root: Path) -> list[dict[str, Any]]:
-    customer_dir = settings_root / "data" / "customers"
-    customers = []
-    for path in sorted(customer_dir.glob("*.json")):
-        customers.append(read_json(path))
-    return customers
-
-
-def load_persona(settings_root: Path, persona_id: str) -> dict[str, Any]:
-    return read_json(settings_root / "data" / "personas" / f"{persona_id}.json")
-
-
 def compute_freshness(
     dataset_name: str,
     records: list[dict[str, Any]],
@@ -651,105 +622,15 @@ def normalize_customer_bundle(
         generated_at=generated_at,
         signals=[signal for _, signal in ranked_signals],
     )
-
-
-def normalized_file_ref(
-    repo_root: Path,
-    generated_at: str,
-    cache_date: str,
-    bundle_count: int,
-) -> CacheFileRef:
-    return CacheFileRef(
-        path=str((repo_root / "data" / "cache" / "normalized" / "signals").relative_to(repo_root)),
-        record_count=bundle_count,
-        generated_at=generated_at,
-        source="normalization_job",
-        date=cache_date,
-    )
-
-
-def run_normalize(cache_date: str) -> tuple[int, CacheManifest]:
-    settings = load_settings()
-    generated_at = datetime.now(timezone.utc).isoformat()
-    requested = requested_date(cache_date)
-
-    market = read_json(settings.raw_cache_root / "market" / f"{cache_date}.json")
-    macro = read_json(settings.raw_cache_root / "macro" / f"{cache_date}.json")
-    news = read_json(settings.raw_cache_root / "news" / f"{cache_date}.json")
-    correlations_path = settings.correlation_cache_root / f"{cache_date}.json"
-    correlations: dict[str, Any] = (
-        read_json(correlations_path) if correlations_path.exists() else {"correlations": []}
-    )
-    manifest = CacheManifest.model_validate(
-        read_json(settings.manifest_cache_root / f"{cache_date}.json")
-    )
-
-    customers = load_customers(settings.repo_root)
-    bundle_count = 0
-
-    for customer in customers:
-        persona = load_persona(settings.repo_root, customer["persona"])
-        bundle = normalize_customer_bundle(
-            customer=customer,
-            persona=persona,
-            cache_date=cache_date,
-            generated_at=generated_at,
-            market_records=market["records"],
-            macro_records=macro["records"],
-            news_records=news["records"],
-            correlation_records=correlations["correlations"],
-        )
-        path = settings.normalized_cache_root / "signals" / f"{cache_date}--{customer['id']}.json"
-        write_json(path, bundle.model_dump(mode="json"))
-        bundle_count += 1
-
-    manifest.raw_market = manifest.raw_market
-    manifest.raw_macro = manifest.raw_macro
-    manifest.raw_news = manifest.raw_news
-    manifest.normalized_signals = normalized_file_ref(
-        settings.repo_root,
-        generated_at=generated_at,
-        cache_date=cache_date,
-        bundle_count=bundle_count,
-    )
-    manifest.freshness["raw_market"] = compute_freshness(
-        "raw_market", market["records"], requested, market["generated_at"]
-    )
-    manifest.freshness["raw_macro"] = compute_freshness(
-        "raw_macro", macro["records"], requested, macro["generated_at"]
-    )
-    manifest.freshness["raw_news"] = compute_freshness(
-        "raw_news", news["records"], requested, news["generated_at"]
-    )
-    manifest.freshness["normalized_signals"] = FreshnessMetadata(
-        status="fresh",
-        as_of=generated_at,
-        generated_at=generated_at,
-        notes=[],
-    )
-    if correlations["correlations"]:
-        manifest.freshness["correlations"] = FreshnessMetadata(
-            status="fresh",
-            as_of=generated_at,
-            generated_at=generated_at,
-            notes=[],
-        )
-
-    write_json(
-        settings.manifest_cache_root / f"{cache_date}.json",
-        manifest.model_dump(mode="json"),
-    )
-
-    return bundle_count, manifest
-
-
 def main() -> None:
     args = parse_args()
-    settings = load_settings()
-    bundle_count, _ = run_normalize(cache_date=args.date)
+    init_db()
+    with session_scope() as session:
+        result = RefreshOrchestrator(session).refresh_cache(args.date)
 
-    print(f"Normalized bundles written: {bundle_count}")
-    print(f"Updated manifest: {settings.manifest_cache_root / f'{args.date}.json'}")
+    print("Standalone normalization has been folded into the DB-backed refresh pipeline.")
+    print(f"Refresh completed for {args.date}")
+    print(result["output"][0])
 
 
 if __name__ == "__main__":

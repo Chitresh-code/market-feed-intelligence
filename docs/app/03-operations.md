@@ -21,6 +21,7 @@ uv sync
 ### Service env
 
 Create `apps/service/.env` with:
+- `DATABASE_URL`
 - `FRED_API_KEY`
 - `FINNHUB_API_KEY`
 
@@ -36,10 +37,35 @@ set +a
 ### Web env
 
 Create `apps/web/.env.local` with:
+- `SERVICE_BASE_URL`
 - `LLM_BASE_URL`
 - `LLM_API_KEY`
 - `LLM_MODEL`
 - `LLM_REASONING_EFFORT` optional
+
+Start Postgres before starting the Python service.
+
+Bootstrap a fresh database before the first refresh:
+
+```bash
+cd apps/service
+set -a
+source .env
+set +a
+uv run python -m jobs.bootstrap_personas
+uv run python -m jobs.bootstrap_customers
+uv run python -m jobs.bootstrap_correlation_mappings
+```
+
+### Start the service
+
+```bash
+cd apps/service
+set -a
+source .env
+set +a
+uv run uvicorn api.app:app --reload --port 8001
+```
 
 ## Refresh workflow
 
@@ -54,9 +80,9 @@ uv run python -m jobs.refresh_cache --date 2026-04-02
 ```
 
 This refreshes:
-- raw market cache
-- raw macro cache
-- raw news cache
+- raw market rows
+- raw macro rows
+- raw news rows
 - correlations
 - normalized per-customer bundles
 - manifest freshness
@@ -89,9 +115,12 @@ Then:
 ### Cache
 
 After refresh, verify:
-- `data/cache/manifests/{date}.json` exists
-- `data/cache/normalized/signals/{date}--C001.json` through `C005.json` exist
-- manifest freshness reflects the current run
+- `GET {SERVICE_BASE_URL}/cache/latest` returns the requested or newest successful date
+- `GET {SERVICE_BASE_URL}/manifests/{date}` returns freshness for the current run
+- `GET {SERVICE_BASE_URL}/bundles/{date}/C001` through `C005` return bundle payloads
+- `GET {SERVICE_BASE_URL}/customers` returns the active customer set
+- `GET {SERVICE_BASE_URL}/personas` returns the active persona set
+- `GET {SERVICE_BASE_URL}/correlation-mappings` returns the active mapping rules
 
 ### Briefing quality
 
@@ -120,6 +149,7 @@ Check:
 ## Demo-day guidance
 
 - run a full `refresh_cache` (not just `normalize`) before the session so the raw macro cache contains `delta_90d` and `delta_180d` fields; without them, long-term macro trend signals will not be generated
+- keep the Python service running during the demo; the web app now depends on its HTTP endpoints for manifest, bundle, and correlation reads
 - generate at least one brief per key demo client in advance for quality review
 - keep the dashboard focused on the 2-3 strongest client scenarios
 - verify that long-term entries contain actual cycle data (e.g. "yield has moved +0.22% over 180 days, gradual tightening bias") rather than a fallback placeholder

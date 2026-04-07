@@ -1,6 +1,3 @@
-import fs from "node:fs/promises"
-import path from "node:path"
-
 export type PersonaId = "hni_equity" | "inst_fund"
 
 export type CustomerAllocation = {
@@ -105,13 +102,6 @@ export type CorrelationRecord = {
   as_of: string
 }
 
-type CorrelationBundle = {
-  bundle_id: string
-  date: string
-  generated_at: string
-  correlations: CorrelationRecord[]
-}
-
 export type FreshnessCard = {
   label: string
   status: ManifestFreshness["status"]
@@ -140,7 +130,7 @@ export type EvidencePack = {
   }>
 }
 
-const repoRoot = path.join(process.cwd(), "..", "..")
+const serviceBaseUrl = process.env.SERVICE_BASE_URL?.replace(/\/+$/, "")
 const monthLabels = [
   "Jan",
   "Feb",
@@ -168,9 +158,23 @@ const genericAllocationTerms = new Set([
   "opportunities",
 ])
 
-async function readJson<T>(filePath: string): Promise<T> {
-  const value = await fs.readFile(filePath, "utf8")
-  return JSON.parse(value) as T
+async function serviceFetch<T>(pathname: string): Promise<T> {
+  if (!serviceBaseUrl) {
+    throw new Error("SERVICE_BASE_URL is not configured.")
+  }
+
+  const response = await fetch(`${serviceBaseUrl}${pathname}`, {
+    cache: "no-store",
+  })
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "")
+    throw new Error(
+      `Service request failed for ${pathname}: ${response.status} ${body || response.statusText}`
+    )
+  }
+
+  return (await response.json()) as T
 }
 
 function formatDateTime(value: string | null | undefined): string | null {
@@ -213,67 +217,41 @@ function summarizeFreshness(label: string, freshness: ManifestFreshness): Freshn
 }
 
 export async function getAvailableCacheDates(): Promise<string[]> {
-  const manifestDir = path.join(repoRoot, "data", "cache", "manifests")
-  const files = (await fs.readdir(manifestDir))
-    .filter((entry) => entry.endsWith(".json"))
-    .map((entry) => entry.replace(/\.json$/, ""))
-    .sort()
-
-  return files
+  const payload = await serviceFetch<{ dates: string[] }>("/cache/dates")
+  return payload.dates
 }
 
 export async function getDefaultCacheDate(): Promise<string> {
-  const dates = await getAvailableCacheDates()
-  const latest = dates.at(-1)
-  if (!latest) {
-    throw new Error("No cache manifests available.")
-  }
-  return latest
+  const payload = await serviceFetch<{ date: string }>("/cache/latest")
+  return payload.date
 }
 
 export async function readCustomers(): Promise<Customer[]> {
-  const dir = path.join(repoRoot, "data", "customers")
-  const files = (await fs.readdir(dir)).filter((entry) => entry.endsWith(".json")).sort()
-  return Promise.all(files.map((file) => readJson<Customer>(path.join(dir, file))))
+  return serviceFetch<Customer[]>("/customers")
 }
 
 export async function readCustomer(customerId: string): Promise<Customer> {
-  const customers = await readCustomers()
-  const customer = customers.find((entry) => entry.id === customerId)
-  if (!customer) {
-    throw new Error(`Unknown customer: ${customerId}`)
-  }
-  return customer
+  return serviceFetch<Customer>(`/customers/${customerId}`)
 }
 
 export async function readPersona(personaId: PersonaId): Promise<Persona> {
-  return readJson<Persona>(path.join(repoRoot, "data", "personas", `${personaId}.json`))
+  return serviceFetch<Persona>(`/personas/${personaId}`)
 }
 
 export async function readManifest(cacheDate: string): Promise<Manifest> {
-  return readJson<Manifest>(
-    path.join(repoRoot, "data", "cache", "manifests", `${cacheDate}.json`)
-  )
+  return serviceFetch<Manifest>(`/manifests/${cacheDate}`)
 }
 
 export async function readBundle(cacheDate: string, customerId: string): Promise<SignalBundle> {
-  return readJson<SignalBundle>(
-    path.join(
-      repoRoot,
-      "data",
-      "cache",
-      "normalized",
-      "signals",
-      `${cacheDate}--${customerId}.json`
-    )
-  )
+  return serviceFetch<SignalBundle>(`/bundles/${cacheDate}/${customerId}`)
 }
 
 export async function readCorrelations(cacheDate: string): Promise<CorrelationRecord[]> {
-  const filePath = path.join(repoRoot, "data", "cache", "correlations", `${cacheDate}.json`)
   try {
-    const bundle = await readJson<CorrelationBundle>(filePath)
-    return bundle.correlations
+    const payload = await serviceFetch<{ correlations: CorrelationRecord[] }>(
+      `/correlations/${cacheDate}`
+    )
+    return payload.correlations
   } catch {
     return []
   }

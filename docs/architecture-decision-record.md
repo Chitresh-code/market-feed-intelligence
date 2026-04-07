@@ -74,7 +74,7 @@ The system is split as:
 
 ## ADR-004: Python execution model
 
-- Status: `accepted`
+- Status: `superseded`
 - Date: `2026-04-02`
 
 ### Context
@@ -83,17 +83,12 @@ The original docs mixed subprocess scripts, microservice patterns, and route-lev
 
 ### Decision
 
-Python is implemented as batch-style `uv` jobs that write persisted artifacts under `data/cache`. It is not an always-on HTTP microservice for this PoC.
+This was the initial file-backed PoC execution model. It has since been replaced by ADR-014.
 
 ### Consequences
 
-- Jobs are invoked explicitly:
-  - `jobs.ingest`
-  - `jobs.correlate`
-  - `jobs.normalize`
-  - `jobs.refresh_cache`
-- Public web routes do not depend on a live Python server
-- The operator refresh route can shell out to the Python refresh job
+- Historical note only
+- Do not use this ADR as the current runtime contract
 
 ## ADR-005: Public API surface
 
@@ -218,6 +213,39 @@ ChromaDB and embeddings were discussed, but the implemented summary flow needed 
 ### Decision
 
 The current summary path does not use ChromaDB or vector retrieval.
+
+## ADR-014: Postgres-backed Python microservice
+
+- Status: `accepted`
+- Date: `2026-04-07`
+
+### Context
+
+The file-based cache contract was sufficient for the earliest PoC, but it left the runtime split ambiguous: Python looked like a job folder rather than a service boundary, and Next.js depended on local filesystem layout for operational reads.
+
+### Decision
+
+Python now runs as a FastAPI microservice backed by Postgres.
+
+The active runtime contract is:
+- Python owns ingestion, normalization, correlations, persistence, and cache-read APIs
+- Postgres is the operational store for raw data, correlations, bundles, and manifest freshness
+- Next.js reads operational data from the Python service over HTTP
+- customers and personas remain file-backed in Next.js for this phase
+
+### Consequences
+
+- The active service endpoints are:
+  - `GET /health`
+  - `GET /cache/dates`
+  - `GET /cache/latest`
+  - `GET /manifests/{date}`
+  - `GET /bundles/{date}/{customer_id}`
+  - `GET /correlations/{date}`
+  - `POST /refresh`
+- The operator refresh route in Next.js no longer shells out to Python directly
+- `data/cache` remains only as historical generated artifacts and is not the runtime source of truth
+- Schema management is model-driven with `Base.metadata.create_all(...)` for now; migration tooling is intentionally deferred
 
 ### Consequences
 

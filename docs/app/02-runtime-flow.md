@@ -4,24 +4,33 @@
 
 ### 1. Cache preparation
 
-The Python service refreshes the cache for a given date:
+The Python data microservice refreshes one Postgres-backed cache snapshot for a given date.
 
-1. `jobs.ingest`
-2. `jobs.correlate`
-3. `jobs.normalize`
+Operator and UI refresh both converge on the same orchestration path:
+- `POST /refresh` on the Python service
+- or `uv run python -m jobs.refresh_cache --date YYYY-MM-DD`
+
+The refresh pipeline:
+1. fetches raw market data
+2. fetches raw macro data
+3. fetches raw news data
+4. generates correlations
+5. normalizes one ranked signal bundle per customer
+6. stores manifest freshness rows for the run
 
 This produces:
-- raw market, macro, and news artifacts
-- correlation artifacts
-- per-customer normalized signal bundles
-- a manifest with freshness metadata
+- raw market, macro, and news rows in Postgres
+- correlation rows
+- per-customer normalized signal bundle rows
+- manifest freshness metadata tied to the cache run
+- all customer, allocation, persona, and correlation-mapping context remains service-owned in Postgres during runtime
 
 ### 2. Dashboard load
 
 When `/dashboard` loads, the web app:
 - reads the selected customer
-- resolves the default cache date from the latest manifest
-- loads the customer bundle and related manifest data
+- resolves the default cache date from the latest successful cache run exposed by the Python service
+- loads customers, personas, the customer bundle, manifest, and correlations from the Python service over HTTP
 - builds an evidence pack for display and summary generation
 
 ### 3. Summary generation
@@ -119,6 +128,9 @@ The summary route uses the official OpenAI Node SDK against an OpenAI-compatible
 
 - external providers are not called during summary generation
 - the summary path is cache-backed and deterministic up to the LLM step
+- the web app does not read runtime cache JSON files directly anymore
+- the Python service is now the read/write boundary for operational market, macro, news, correlation, and normalized data
+- the web app also does not read runtime customer or persona JSON files directly anymore
 - freshness metadata must be treated as part of the interpretation layer
 - if a sleeve lacks direct evidence, the prompt instructs the model not to invent support
 - thinking-style providers may emit hidden-reasoning tokens or stray closing tags in the stream; the route sanitizes these before sending visible content to the UI
