@@ -22,6 +22,7 @@ class NormalizedSignal(BaseModel):
     category: SignalCategory
     label: str
     source: str
+    source_url: HttpUrl | None = None
     as_of: str
     customer_relevance: float = Field(ge=0.0, le=1.0)
     persona_weight: float = Field(ge=0.0)

@@ -549,6 +549,7 @@ def build_news_signals(
             category="news_event_signal",
             label=record["headline"],
             source=record["source"],
+            source_url=record["url"],
             as_of=record["published_at"],
             customer_relevance=relevance,
             persona_weight=weight,

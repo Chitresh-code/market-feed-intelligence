@@ -11,27 +11,27 @@ web:
 	cd apps/web && npm run dev
 
 api:
-	cd apps/service && set -a && source .env && set +a && uv run uvicorn api.app:app --reload --port $(SERVICE_PORT)
+	cd apps/service && set -a && source .env && set +a && PYTHONPATH=src uv run uvicorn api.app:app --reload --port $(SERVICE_PORT)
 
 dev:
 	$(MAKE) -j2 web api
 
 service:
-	cd apps/service && set -a && source .env && set +a && uv run python -m jobs.$(JOB) --date $(DATE)
+	cd apps/service && set -a && source .env && set +a && PYTHONPATH=src uv run python -m jobs.$(JOB) --date $(DATE)
 
 refresh:
-	cd apps/service && set -a && source .env && set +a && uv run python -m jobs.refresh_cache --date $(DATE)
+	cd apps/service && set -a && source .env && set +a && PYTHONPATH=src uv run python -m jobs.refresh_cache --date $(DATE)
 
 bootstrap: bootstrap-personas bootstrap-customers bootstrap-correlations
 
 bootstrap-personas:
-	cd apps/service && set -a && source .env && set +a && uv run python -m jobs.bootstrap_personas
+	cd apps/service && set -a && source .env && set +a && PYTHONPATH=src uv run python -m jobs.bootstrap_personas
 
 bootstrap-customers:
-	cd apps/service && set -a && source .env && set +a && uv run python -m jobs.bootstrap_customers
+	cd apps/service && set -a && source .env && set +a && PYTHONPATH=src uv run python -m jobs.bootstrap_customers
 
 bootstrap-correlations:
-	cd apps/service && set -a && source .env && set +a && uv run python -m jobs.bootstrap_correlation_mappings
+	cd apps/service && set -a && source .env && set +a && PYTHONPATH=src uv run python -m jobs.bootstrap_correlation_mappings
 
 install: install-web install-service
 

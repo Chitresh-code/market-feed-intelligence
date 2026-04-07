@@ -1,8 +1,8 @@
 export const SUMMARY_SECTION_DEFINITIONS = [
+  { id: "talking-points", title: "Talking Points" },
   { id: "market-pulse", title: "Market Pulse" },
   { id: "client-relevant-signals", title: "Client-Relevant Signals" },
   { id: "global-linkages", title: "Global Linkages" },
-  { id: "talking-points", title: "Talking Points" },
 ] as const
 
 export const SUMMARY_SECTIONS = SUMMARY_SECTION_DEFINITIONS.map((section) => section.title)

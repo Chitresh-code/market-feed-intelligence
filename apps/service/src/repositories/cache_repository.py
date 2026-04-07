@@ -187,6 +187,17 @@ class CacheRepository:
                 return bundle
         return None
 
+    def fetch_bundle_with_run_for_date(
+        self, cache_date: str, customer_id: str
+    ) -> tuple[CacheRunRecord, SignalBundleModel] | None:
+        run = self.fetch_successful_run_for_date(cache_date)
+        if not run:
+            return None
+        for bundle in run.signal_bundles:
+            if bundle.customer_id == customer_id:
+                return run, bundle
+        return None
+
     def build_manifest_from_run(self, run: CacheRunRecord) -> CacheManifest:
         freshness = {
             row.dataset_name: FreshnessMetadata(
@@ -234,6 +245,43 @@ class CacheRepository:
                     category=signal.category,
                     label=signal.label,
                     source=signal.source,
+                    as_of=signal.as_of,
+                    customer_relevance=signal.customer_relevance,
+                    persona_weight=signal.persona_weight,
+                    confidence=signal.confidence,
+                    narrative=signal.narrative,
+                    time_horizon=signal.time_horizon,
+                )
+                for signal in bundle.signals
+            ],
+        )
+
+    def build_bundle_response_with_run(
+        self, run: CacheRunRecord, bundle: SignalBundleModel
+    ) -> NormalizedSignalBundle:
+        news_url_by_article_id = {
+            record.article_id: record.url for record in run.raw_news_records
+        }
+
+        def resolve_signal_url(signal: NormalizedSignalModel) -> str | None:
+            if signal.category != "news_event_signal":
+                return None
+            article_id = signal.signal_id.rsplit("::", 1)[-1]
+            return news_url_by_article_id.get(article_id)
+
+        return NormalizedSignalBundle(
+            bundle_id=bundle.bundle_id,
+            customer_id=bundle.customer_id,
+            persona_id=bundle.persona_id,
+            date=bundle.date,
+            generated_at=bundle.generated_at,
+            signals=[
+                NormalizedSignal(
+                    signal_id=signal.signal_id,
+                    category=signal.category,
+                    label=signal.label,
+                    source=signal.source,
+                    source_url=resolve_signal_url(signal),
                     as_of=signal.as_of,
                     customer_relevance=signal.customer_relevance,
                     persona_weight=signal.persona_weight,

@@ -36,11 +36,14 @@ import {
   SUMMARY_SECTION_DEFINITIONS,
   type SummarySectionId,
 } from "@/lib/summary-sections"
+import { cn } from "@/lib/utils"
 
 type StoredBriefingState = {
   run: SummaryRunState
   sections: Record<SummarySectionId, SummarySectionState>
 }
+
+const TALKING_POINTS_SECTION_ID: SummarySectionId = "talking-points"
 
 function storageKey(customerId: string, cacheDate: string): string {
   return `briefing:${customerId}:${cacheDate}`
@@ -246,12 +249,17 @@ export function BriefingPanel({
   const [sections, setSections] = useState<Record<SummarySectionId, SummarySectionState>>(
     createEmptySections
   )
+  const [openBriefingSectionId, setOpenBriefingSectionId] = useState<SummarySectionId | null>(null)
   const [summaryError, setSummaryError] = useState<string | null>(null)
   const [isStorageReady, setIsStorageReady] = useState(false)
 
   const orderedSections = useMemo(
     () => SUMMARY_SECTION_DEFINITIONS.map((section) => sections[section.id]),
     [sections]
+  )
+  const talkingPointsSection = sections[TALKING_POINTS_SECTION_ID]
+  const collapsibleSections = orderedSections.filter(
+    (section) => section.sectionId !== TALKING_POINTS_SECTION_ID
   )
 
   useEffect(() => {
@@ -261,6 +269,7 @@ export function BriefingPanel({
   useEffect(() => {
     setIsGenerating(false)
     setIsStorageReady(false)
+    setOpenBriefingSectionId(null)
     try {
       const stored = window.sessionStorage.getItem(storageKey(customerId, cacheDate))
       if (!stored) {
@@ -308,6 +317,7 @@ export function BriefingPanel({
   }, [cacheDate, customerId, isStorageReady, orderedSections, sections, summaryRun])
 
   function resetGenerationState() {
+    setOpenBriefingSectionId(null)
     setSummaryRun({
       ...createEmptyRun(),
       status: "generating",
@@ -520,6 +530,13 @@ export function BriefingPanel({
   const hasGeneratedContent = orderedSections.some((section) => section.content.trim().length > 0)
   const showSectionGrid =
     isGenerating || hasGeneratedContent || orderedSections.some((section) => section.error)
+  const visibleCollapsibleSections = collapsibleSections.filter(
+    (section) => section.status === "completed" || section.status === "failed"
+  )
+
+  function toggleBriefingSection(sectionId: SummarySectionId) {
+    setOpenBriefingSectionId((current) => (current === sectionId ? null : sectionId))
+  }
 
   return (
     <Card>
@@ -585,37 +602,79 @@ export function BriefingPanel({
 
         {showSectionGrid ? (
           <div className="grid gap-4">
-            {orderedSections.map((section) => (
-              <div key={section.sectionId} className="min-w-0 rounded-xl border bg-muted/20 p-4">
-                <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    {section.title}
-                  </p>
-                </div>
-
-                {section.error ? (
-                  <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                    {section.error}
-                  </div>
-                ) : null}
-
-                <div className="mt-4">
-                  {section.content ? (
-                    <Streamdown>{section.content}</Streamdown>
-                  ) : (
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                      {section.status === "generating"
-                        ? "Generating..."
-                        : "Awaiting content..."}
-                    </p>
-                  )}
-                </div>
+            <div className="min-w-0 rounded-xl border bg-muted/20 p-4">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {talkingPointsSection.title}
+                </p>
               </div>
-            ))}
+
+              {talkingPointsSection.error ? (
+                <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                  {talkingPointsSection.error}
+                </div>
+              ) : null}
+
+              <div className="mt-4">
+                {talkingPointsSection.content ? (
+                  <Streamdown>{talkingPointsSection.content}</Streamdown>
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                    {talkingPointsSection.status === "generating"
+                      ? "Generating..."
+                      : "Awaiting content..."}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {visibleCollapsibleSections.map((section) => {
+              const isOpen = openBriefingSectionId === section.sectionId
+
+              return (
+                <div key={section.sectionId} className="min-w-0 rounded-xl border bg-muted/20">
+                  <button
+                    type="button"
+                    onClick={() => toggleBriefingSection(section.sectionId)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
+                  >
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {section.title}
+                    </p>
+                    <ChevronDownIcon
+                      className={cn(
+                        "size-4 shrink-0 text-muted-foreground transition-transform",
+                        isOpen ? "rotate-180" : "rotate-0"
+                      )}
+                    />
+                  </button>
+
+                  {isOpen ? (
+                    <div className="border-t px-4 py-4">
+                      {section.error ? (
+                        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                          {section.error}
+                        </div>
+                      ) : null}
+
+                      <div className={section.error ? "mt-4" : ""}>
+                        {section.content ? (
+                          <Streamdown>{section.content}</Streamdown>
+                        ) : (
+                          <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                            Awaiting content...
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
           </div>
         ) : (
           <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-            Generate a brief to render the streamed summary here.
+            Generate a brief to render the summary here.
           </div>
         )}
       </CardContent>

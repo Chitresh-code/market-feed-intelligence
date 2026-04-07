@@ -38,6 +38,23 @@ export type Persona = {
   fallback_rules: string[]
 }
 
+export type CorrelationMapping = {
+  id: string
+  label: string
+  source_signal: string
+  target_signal: string
+  r_value: number
+  direction: "positive" | "negative"
+  strength: "strong" | "moderate" | "weak"
+  lookback_days: number
+  narrative: string
+  scope_type: "allocation_ticker" | "persona" | "customer_id"
+  scope_value: string
+  active: boolean
+  created_at?: string | null
+  updated_at?: string | null
+}
+
 export type ManifestFreshness = {
   status: "fresh" | "stale" | "missing"
   as_of: string | null
@@ -71,6 +88,7 @@ export type Signal = {
   category: string
   label: string
   source: string
+  source_url?: string | null
   as_of: string
   customer_relevance: number
   persona_weight: number
@@ -238,6 +256,10 @@ export async function readPersona(personaId: PersonaId): Promise<Persona> {
   return serviceFetch<Persona>(`/personas/${personaId}`)
 }
 
+export async function readPersonas(): Promise<Persona[]> {
+  return serviceFetch<Persona[]>("/personas")
+}
+
 export async function readManifest(cacheDate: string): Promise<Manifest> {
   return serviceFetch<Manifest>(`/manifests/${cacheDate}`)
 }
@@ -255,6 +277,10 @@ export async function readCorrelations(cacheDate: string): Promise<CorrelationRe
   } catch {
     return []
   }
+}
+
+export async function readCorrelationMappings(): Promise<CorrelationMapping[]> {
+  return serviceFetch<CorrelationMapping[]>("/correlation-mappings")
 }
 
 function horizonMultiplier(horizon: string, personaId: PersonaId): number {

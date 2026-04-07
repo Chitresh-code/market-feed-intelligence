@@ -26,10 +26,11 @@ class CacheQueryService:
         return self.repository.build_manifest_from_run(run)
 
     def get_bundle(self, cache_date: str, customer_id: str) -> NormalizedSignalBundle:
-        bundle = self.repository.fetch_bundle_for_date(cache_date, customer_id)
-        if not bundle:
+        result = self.repository.fetch_bundle_with_run_for_date(cache_date, customer_id)
+        if not result:
             raise ValueError(f"No normalized signal bundle found for {customer_id} on {cache_date}.")
-        return self.repository.build_bundle_response(bundle)
+        run, bundle = result
+        return self.repository.build_bundle_response_with_run(run, bundle)
 
     def get_correlations(self, cache_date: str) -> CorrelationBundle:
         run = self.repository.fetch_successful_run_for_date(cache_date)
