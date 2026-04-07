@@ -12,4 +12,4 @@ __pycache__
 .env
 .env.local
 uv.lock
-generations/
+generations

@@ -15,7 +15,22 @@ from domain.models import (
     FreshnessMetadata,
     NormalizedSignal,
     NormalizedSignalBundle,
+    TimeHorizon,
 )
+
+
+def classify_signal_horizon(category: str, lookback_days: int = 0) -> TimeHorizon:
+    """Classify a signal's inherent time horizon based on its category.
+
+    - short: immediate price action and news catalysts (days to 2 weeks)
+    - medium: macro current values, 90-day correlations (2 weeks to 3 months)
+    - long: multi-month macro trends, 365-day structural correlations (3 months to 12+ months)
+    """
+    if category in ("market_index", "sector_proxy_market", "news_event_signal"):
+        return "short"
+    if category == "correlation_signal":
+        return "long" if lookback_days >= 270 else "medium"
+    return "medium"  # macro_series current-value signals
 
 
 TICKER_ALIASES = {
@@ -25,11 +40,18 @@ TICKER_ALIASES = {
 
 GENERIC_NEWS_BLOCKLIST = (
     "what are the main events for today",
+    "what is the distribution of forecasts",
+    "what's behind",
+    "what’s behind",
     "givers’ regret",
     "givers' regret",
     "wells fargo and goldman",
     "visa launches new ai tools",
     "jim cramer warns rally lacks real leadership",
+    "shares edge up on rupee rally",
+    "stocks end mixed",
+    "stocks higher on hopes",
+    "week ahead",
 )
 
 ALLOCATION_KEYWORD_ALIASES = {
@@ -61,6 +83,34 @@ GENERIC_ALLOCATION_TERMS = {
     "growth",
     "strategic",
     "opportunities",
+}
+
+GENERIC_RM_TERMS = {
+    "focused",
+    "whether",
+    "today",
+    "recent",
+    "around",
+    "after",
+    "before",
+    "carry",
+    "client",
+    "wants",
+    "prefers",
+    "review",
+    "call",
+    "meeting",
+    "briefs",
+    "brief",
+    "morning",
+    "lead",
+    "with",
+    "into",
+    "exposure",
+    "portfolio",
+    "performance",
+    "timing",
+    "strategic",
 }
 
 
@@ -252,37 +302,10 @@ def build_market_signals(
             persona_weight=weight,
             confidence=confidence,
             narrative=narrative,
+            time_horizon=classify_signal_horizon(category),
         )
         score = relevance * weight * confidence
         signals.append((score, signal))
-
-        if (
-            category == "sector_proxy_market"
-            and record.get("delta_5d_pct") is not None
-            and relevance >= 0.16
-        ):
-            signals.append(
-                (
-                    score * 0.92,
-                    NormalizedSignal(
-                        signal_id=f"{customer['id']}::fundamental-proxy::{record['ticker']}::{record['as_of']}",
-                        category="sector_proxy_fundamental",
-                        label=f"{record['label']} proxy read-through",
-                        source="derived_from_yfinance",
-                        as_of=record["as_of"],
-                        customer_relevance=relevance,
-                        persona_weight=float(
-                            persona["category_weights"]["sector_proxy_fundamental"]
-                        ),
-                        confidence=0.55,
-                        narrative=(
-                            f"{record['label']} is being used as a sector proxy read-through for the POC. "
-                            f"Its 5D move is {record['delta_5d_pct']:+.2f}%, which helps frame sector strength "
-                            "until a richer sector-fundamental source is added."
-                        ),
-                    ),
-                )
-            )
 
     return signals
 
@@ -312,6 +335,14 @@ def build_macro_signals(
             ):
                 relevance = max(relevance, 0.75)
 
+        medium_narrative = (
+            f"{record['label']} is at {record['value']:.2f} {record['unit']}."
+            + (
+                f" Daily delta: {record['delta_1d']:+.2f}."
+                if record.get("delta_1d") is not None
+                else ""
+            )
+        )
         signal = NormalizedSignal(
             signal_id=f"{customer['id']}::{record['series_id']}::{record['as_of']}",
             category="macro_series",
@@ -321,18 +352,90 @@ def build_macro_signals(
             customer_relevance=relevance,
             persona_weight=weight,
             confidence=0.85,
-            narrative=(
-                f"{record['label']} is at {record['value']:.2f} {record['unit']}."
-                + (
-                    f" Daily delta: {record['delta_1d']:+.2f}."
-                    if record.get("delta_1d") is not None
-                    else ""
-                )
-            ),
+            narrative=medium_narrative,
+            time_horizon=classify_signal_horizon("macro_series"),
         )
         signals.append((relevance * weight * 0.85, signal))
 
+        # Generate a long-term signal when multi-month delta data is available.
+        delta_90d = record.get("delta_90d")
+        delta_180d = record.get("delta_180d")
+        if delta_90d is not None or delta_180d is not None:
+            long_narrative = _build_macro_long_term_narrative(
+                record["series_id"], record["label"], record["unit"],
+                record["value"], delta_90d, delta_180d
+            )
+            long_signal = NormalizedSignal(
+                signal_id=f"{customer['id']}::{record['series_id']}::long::{record['as_of']}",
+                category="macro_series",
+                label=f"{record['label']} — 6-month trend",
+                source=record["source"],
+                as_of=record["as_of"],
+                customer_relevance=relevance,
+                persona_weight=weight,
+                confidence=0.80,
+                narrative=long_narrative,
+                time_horizon="long",
+            )
+            signals.append((relevance * weight * 0.80, long_signal))
+
     return signals
+
+
+def _build_macro_long_term_narrative(
+    series_id: str,
+    label: str,
+    unit: str,
+    current_value: float,
+    delta_90d: float | None,
+    delta_180d: float | None,
+) -> str:
+    parts: list[str] = [f"{label} is currently at {current_value:.2f} {unit}."]
+
+    if delta_180d is not None:
+        abs_180 = abs(delta_180d)
+        if series_id == "DGS10":
+            if delta_180d > 0.5:
+                cycle = "sustained tightening cycle in progress"
+            elif delta_180d > 0.1:
+                cycle = "gradual tightening bias over the period"
+            elif delta_180d < -0.5:
+                cycle = "sustained easing cycle in progress"
+            elif delta_180d < -0.1:
+                cycle = "easing bias emerging"
+            else:
+                cycle = "broadly stable range over the period"
+            parts.append(
+                f"Over the past 180 days, the yield has moved {delta_180d:+.2f} {unit} ({cycle})."
+            )
+        elif series_id == "DEXINUS":
+            if delta_180d > 2.0:
+                cycle = "sustained rupee depreciation pressure"
+            elif delta_180d > 0.5:
+                cycle = "mild rupee weakness"
+            elif delta_180d < -2.0:
+                cycle = "meaningful rupee appreciation"
+            elif delta_180d < -0.5:
+                cycle = "mild rupee strength"
+            else:
+                cycle = "broadly stable exchange rate"
+            parts.append(
+                f"Over the past 180 days, the rate has moved {delta_180d:+.2f} {unit} ({cycle})."
+            )
+        else:
+            parts.append(f"180-day change: {delta_180d:+.2f} {unit}.")
+
+    if delta_90d is not None:
+        parts.append(f"90-day change: {delta_90d:+.2f} {unit}.")
+
+    if delta_180d is not None and delta_90d is not None:
+        # Check for acceleration: if 90d move is more than 60% of the 180d move
+        if abs(delta_180d) > 0.05 and abs(delta_90d) / abs(delta_180d) > 0.6:
+            parts.append("The pace has accelerated in the recent quarter relative to the full 6-month window.")
+        elif abs(delta_180d) > 0.05 and abs(delta_90d) / abs(delta_180d) < 0.3:
+            parts.append("The pace has decelerated in the recent quarter, suggesting the trend may be stabilizing.")
+
+    return " ".join(parts)
 
 
 def customer_keywords(customer: dict[str, Any]) -> set[str]:
@@ -344,7 +447,23 @@ def customer_keywords(customer: dict[str, Any]) -> set[str]:
             keywords.add(word)
             keywords.update(ALLOCATION_KEYWORD_ALIASES.get(word, set()))
         keywords.update(holding.lower().replace(".ns", "") for holding in allocation["key_holdings"])
-    keywords.update(word.lower() for word in customer["rm_notes"].split() if len(word) > 3)
+    keywords.update(
+        word.lower()
+        for entry in customer.get("key_concerns", [])
+        for word in entry.replace("-", " ").split()
+        if len(word) > 3 and word.lower() not in GENERIC_RM_TERMS
+    )
+    keywords.update(
+        word.lower()
+        for entry in customer.get("watchlist", [])
+        for word in entry.replace("-", " ").split()
+        if len(word) > 2
+    )
+    keywords.update(
+        word.lower()
+        for word in customer.get("primary_objective", "").replace("-", " ").split()
+        if len(word) > 3 and word.lower() not in GENERIC_RM_TERMS
+    )
     return keywords
 
 
@@ -374,19 +493,64 @@ def build_news_signals(
     }
 
     for record in records:
-        text = f"{record['headline']} {record['summary']}".lower()
+        headline = record["headline"].lower()
+        source_name = (record.get("source_name") or "").lower()
+        text = f"{headline} {record['summary']}".lower()
         if any(blocked in text for blocked in GENERIC_NEWS_BLOCKLIST):
+            continue
+        if headline.endswith("?"):
+            continue
+        if source_name == "forexlive":
             continue
 
         hits = sum(1 for keyword in keywords if keyword in text)
         macro_hits = sum(1 for keyword in macro_terms if keyword in text)
 
+        direct_theme_terms = {
+            "technology",
+            "tech",
+            "bank",
+            "banking",
+            "consumer",
+            "consumption",
+            "infrastructure",
+            "infra",
+            "midcap",
+            "mid-cap",
+            "smallcap",
+            "small-cap",
+            "auto",
+            "gold",
+            "oil",
+            "bond",
+            "yield",
+            "rupee",
+            "dollar",
+            "credit",
+            "liquidity",
+            "pharma",
+        }
+        direct_theme_hits = sum(1 for term in direct_theme_terms if term in text)
+
         if customer["persona"] == "hni_equity" and hits == 0:
             continue
-        if customer["persona"] == "inst_fund" and hits == 0 and macro_hits < 2:
+        if customer["persona"] == "inst_fund" and hits == 0 and macro_hits < 2 and direct_theme_hits == 0:
             continue
 
         if "iran" in text and hits == 0 and macro_hits < 2:
+            continue
+        if source_name == "reuters" and hits == 0 and direct_theme_hits == 0 and macro_hits < 3:
+            continue
+        if any(
+            phrase in text
+            for phrase in (
+                "stocks end mixed",
+                "shares edge up",
+                "stocks higher",
+                "war worries drag",
+                "renewed concerns about middle east conflict",
+            )
+        ) and hits == 0:
             continue
         if "visa " in text and hits == 0:
             continue
@@ -405,8 +569,10 @@ def build_news_signals(
         if "vietnam" in text:
             continue
 
-        relevance = min(0.35 + (hits * 0.14) + (macro_hits * 0.05), 0.9)
-        if relevance < 0.5:
+        relevance = min(0.25 + (hits * 0.18) + (direct_theme_hits * 0.08) + (macro_hits * 0.04), 0.92)
+        if customer["persona"] == "hni_equity" and hits < 1:
+            continue
+        if relevance < 0.62:
             continue
         signal = NormalizedSignal(
             signal_id=f"{customer['id']}::news::{record['article_id']}",
@@ -416,15 +582,17 @@ def build_news_signals(
             as_of=record["published_at"],
             customer_relevance=relevance,
             persona_weight=weight,
-            confidence=0.7,
+            confidence=0.64 if source_name == "reuters" and hits == 0 else 0.72,
             narrative=(
                 f"{record['source_name']} published a potentially relevant catalyst: {record['headline']}."
             ),
+            time_horizon=classify_signal_horizon("news_event_signal"),
         )
-        signals.append((relevance * weight * 0.7, signal))
+        confidence = 0.64 if source_name == "reuters" and hits == 0 else 0.72
+        signals.append((relevance * weight * confidence, signal))
 
     signals.sort(key=lambda item: item[0], reverse=True)
-    return signals[:5]
+    return signals[:3]
 
 
 def build_correlation_signals(
@@ -442,7 +610,7 @@ def build_correlation_signals(
         confidence = 0.9 if record["strength"] == "strong" else 0.75
         relevance = min(0.5 + abs(float(record["r_value"])) * 0.4, 0.95)
         signal = NormalizedSignal(
-            signal_id=f"{customer['id']}::correlation::{record['source_signal']}::{record['target_signal']}",
+            signal_id=f"{customer['id']}::correlation::{record['source_signal']}::{record['target_signal']}::{record.get('lookback_days', 90)}d",
             category="correlation_signal",
             label=record["label"],
             source=record["source"],
@@ -451,6 +619,7 @@ def build_correlation_signals(
             persona_weight=weight,
             confidence=confidence,
             narrative=record["narrative"],
+            time_horizon=classify_signal_horizon("correlation_signal", record.get("lookback_days", 90)),
         )
         signals.append((relevance * weight * confidence, signal))
 

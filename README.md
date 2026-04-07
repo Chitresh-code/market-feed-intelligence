@@ -19,6 +19,7 @@ Current env vars:
   - `LLM_BASE_URL`
   - `LLM_API_KEY`
   - `LLM_MODEL`
+  - `LLM_REASONING_EFFORT` optional override for providers that support reasoning levels; ignored for Google's generativelanguage OpenAI-compatible endpoint
 
 Create local env files before running:
 
@@ -70,7 +71,7 @@ cd apps/service
 set -a
 source .env
 set +a
-uv run python -m jobs.ingest --date 2026-04-02
+uv run python -m src.jobs.ingest --date 2026-04-02
 ```
 
 ### Refresh the full cache in one command
@@ -80,22 +81,22 @@ cd apps/service
 set -a
 source .env
 set +a
-uv run python -m jobs.refresh_cache --date 2026-04-02
+uv run python -m src.jobs.refresh_cache --date 2026-04-02
 ```
 
 ### Normalize raw cache into per-customer bundles
 
 ```bash
 cd apps/service
-uv run python -m jobs.normalize --date 2026-04-02
+uv run python -m src.jobs.normalize --date 2026-04-02
 ```
 
 ### Generate correlation artifacts
 
 ```bash
 cd apps/service
-uv run python -m jobs.correlate --date 2026-04-02
-uv run python -m jobs.normalize --date 2026-04-02
+uv run python -m src.jobs.correlate --date 2026-04-02
+uv run python -m src.jobs.normalize --date 2026-04-02
 ```
 
 Expected outputs after a successful ingest run:

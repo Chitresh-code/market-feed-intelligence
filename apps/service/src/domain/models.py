@@ -14,6 +14,8 @@ SignalCategory = Literal[
     "correlation_signal",
 ]
 
+TimeHorizon = Literal["short", "medium", "long"]
+
 
 class NormalizedSignal(BaseModel):
     signal_id: str
@@ -25,6 +27,7 @@ class NormalizedSignal(BaseModel):
     persona_weight: float = Field(ge=0.0)
     confidence: float = Field(ge=0.0, le=1.0)
     narrative: str
+    time_horizon: TimeHorizon = "short"
 
 
 class NewsEvent(BaseModel):
@@ -84,6 +87,8 @@ class RawMacroRecord(BaseModel):
     label: str
     value: float
     delta_1d: float | None = None
+    delta_90d: float | None = None
+    delta_180d: float | None = None
     unit: str
     source: Literal["fredapi"]
     as_of: str

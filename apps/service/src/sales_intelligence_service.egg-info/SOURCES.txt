@@ -9,7 +9,10 @@ src/adapters/fred_adapter.py
 src/adapters/yfinance_adapter.py
 src/domain/models.py
 src/jobs/__init__.py
+src/jobs/correlate.py
 src/jobs/ingest.py
+src/jobs/normalize.py
+src/jobs/refresh_cache.py
 src/sales_intelligence_service.egg-info/PKG-INFO
 src/sales_intelligence_service.egg-info/SOURCES.txt
 src/sales_intelligence_service.egg-info/dependency_links.txt

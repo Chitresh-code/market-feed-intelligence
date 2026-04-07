@@ -11,6 +11,7 @@ Companion files:
 - `03-dataset-catalogue-mapping.md`
 - `04-architecture-overview-mapping.md`
 - `05-poc-library-entry-mapping.md`
+- `06-persona-driven-multi-horizon-summary-mapping.md`
 
 Use this folder together with:
 - [Application Docs](/Users/chitreshgyanani/qtsolv/MacquirePOC/docs/app/README.md)

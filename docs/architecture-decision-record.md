@@ -314,6 +314,107 @@ The UI displays the briefing date as `today + 1`, while the underlying cache dat
 - Exported and rendered artifacts distinguish displayed briefing date from cache date where needed
 - This is a PoC presentation rule, not a production scheduling rule
 
+## ADR-015: Parallel sectioned LLM generation with YAML prompt profiles
+
+- Status: `accepted`
+- Date: `2026-04-03`
+
+### Context
+
+The initial single-prompt summary flow made it harder to control section-specific behavior, delayed visible output, and blurred the distinction between analytical sections and RM conversation cues.
+
+### Decision
+
+The summary layer is implemented as four parallel section generators driven by YAML prompt profiles stored under `apps/web/prompts`.
+
+Each section has:
+- its own prompt template
+- its own render contract
+- its own evidence slice
+
+The route streams structured section events to the UI over SSE.
+
+### Consequences
+
+- Section behavior can be tuned without changing the entire summary prompt
+- The UI can render sections independently as they complete
+- Prompt quality depends on keeping section responsibilities sharply separated
+
+## ADR-016: Provider compatibility and reasoning sanitization
+
+- Status: `accepted`
+- Date: `2026-04-03`
+
+### Context
+
+Google’s OpenAI-compatible `generativelanguage` endpoint was tested with a thinking-capable hosted model and showed two behaviors:
+- it emitted hidden reasoning content in the normal stream, marked via `delta.extra_content.google.thought`
+- it returned `400` when `reasoning_effort` was sent for the tested model path
+
+### Decision
+
+The summary route must:
+- sanitize hidden reasoning tags before content reaches the UI or exports
+- skip Google-marked thought chunks during streaming
+- ignore `LLM_REASONING_EFFORT` for the `generativelanguage` endpoint unless provider behavior changes in a later validation pass
+
+### Consequences
+
+- Visible briefing content stays cleaner across thinking and non-thinking model types
+- Provider compatibility is handled in code rather than assumed from nominal OpenAI API parity
+- Reasoning-effort control remains available for other providers that actually support it
+
+## ADR-017: Three-horizon evidence assembly with persona-specific weighting
+
+- Status: `accepted`
+- Date: `2026-04-07`
+
+### Context
+
+Briefings generated with the allocation-anchored evidence pack read similarly across personas. The root cause was that all signals were assembled into a flat ranked list with no time-horizon metadata, and prompts had no instruction to distinguish short-term, medium-term, and long-term analysis. The result was summaries that collapsed all evidence into a "current market" narrative regardless of whether the client was HNI or institutional.
+
+### Decision
+
+Signal horizon classification is applied at normalization time and carried as a `time_horizon` field on every `NormalizedSignal`. The classification rules are:
+- `short`: market indices, sector proxies, news catalysts
+- `medium`: macro series current values, 90-day rolling correlations
+- `long`: macro 6-month trend signals, 365-day structural correlations
+
+Evidence selection in the web layer applies a persona-specific horizon multiplier to the sort score:
+- HNI equity: short × 1.3, medium × 1.0, long × 0.7
+- Institutional fund: short × 0.8, medium × 1.2, long × 1.3
+
+Long-term signals are assembled into a separate `longTermSignals` bucket and added to every section's evidence slice unconditionally, preventing them from being crowded out by higher-scoring short-term signals.
+
+All four prompt profiles receive signals organized into labeled horizon groups and a `horizon_priority` context variable. Each render contract requires explicit `**Short-term:**`, `**Medium-term:**`, and `**Long-term:**` labels within each sleeve or linkage sub-section, with mandatory honest-degradation language when evidence for a horizon is absent.
+
+### Consequences
+
+- A HNI briefing and an institutional briefing generated from the same cache date should be visibly different in both signal ranking and narrative framing
+- Long-term entries can only be "no data available" if the cache was not generated with a full `refresh_cache` run after the FRED adapter changes
+- Adding new data sources that carry inherent multi-month windows (e.g. earnings consensus revisions, 6-month FRED trend windows) should classify them as `long` and they will flow into `longTermSignals` automatically
+
+## ADR-018: Long-term signal sources — multi-period FRED deltas and 365-day structural correlations
+
+- Status: `accepted`
+- Date: `2026-04-07`
+
+### Context
+
+The three-horizon framework (ADR-017) requires actual long-horizon evidence. Two options were available without adding new provider dependencies: compute multi-period deltas from the historical series already returned by the FRED API, and add 365-day structural correlation variants alongside the existing 90-day tactical correlations in `correlate.py`.
+
+### Decision
+
+**FRED adapter:** The `get_series` call already returns the full historical series. The adapter now computes `delta_90d` and `delta_180d` by looking up the series value 90 and 180 calendar days before the latest observation. These fields are written to `RawMacroRecord` and to the raw macro cache. The normalization job detects their presence and generates a second, long-tagged signal per series with a narrative describing the rate or currency cycle direction (e.g. "gradual tightening bias", "sustained rupee depreciation pressure").
+
+**Structural correlations:** A second mapping table `LONG_CORRELATION_MAPPINGS` in `correlate.py` contains 365-day variants of the existing signal pairs, with r-values reflecting the longer-window relationship and narratives framed around cycle-level rather than tactical dynamics. These produce `time_horizon="long"` signals during normalization because `classify_signal_horizon` returns `long` for correlation signals with `lookback_days >= 270`.
+
+### Consequences
+
+- Long-term macro trend signals are only generated when the raw cache was produced by a `refresh_cache` or `ingest` run after this change; caches produced before the change will omit `delta_90d` and `delta_180d` and produce no long-term macro signals
+- The FRED series history depth determines how far back the deltas can reach; for shorter series, some deltas may return `None` and the long-term signal will be silently skipped
+- The 365-day correlation r-values and narratives are precomputed and static; they represent the structural relationship at the time of authoring, not a live rolling window calculation
+
 ## Maintenance
 
 When a new architecture or product-scope decision is made:

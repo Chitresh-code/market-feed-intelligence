@@ -28,7 +28,7 @@ The live briefing layer generates a four-section brief:
 - `Global Linkages`
 - `Talking Points`
 
-The summary is generated live from a compact evidence pack assembled from cache artifacts.
+The summary is generated live from a compact evidence pack assembled from cache artifacts. Each section receives signals organized into three time horizons — short (days to 2 weeks), medium (2 weeks to 3 months), and long (3 months to 12+ months) — and a persona-specific horizon priority instruction that controls how the model weights and frames each horizon. HNI equity clients receive short-heavy framing; institutional fund clients receive medium and long-heavy framing.
 
 ### Export
 
@@ -70,7 +70,10 @@ Included:
 - live summary generation
 - sector and sleeve proxy coverage
 - news-derived catalysts
-- precomputed correlations
+- precomputed 90-day tactical correlations
+- precomputed 365-day structural correlations
+- multi-period FRED macro trend deltas (90-day and 180-day)
+- three-horizon evidence organization with persona-specific horizon weighting
 
 Excluded:
 - live CRM integration

@@ -79,6 +79,7 @@ export type Signal = {
   persona_weight: number
   confidence: number
   narrative: string
+  time_horizon: string
 }
 
 export type SignalBundle = {
@@ -126,10 +127,12 @@ export type EvidencePack = {
   allocationAnchors: Array<{
     sector: string
     weight: number
+    key_holdings: string[]
   }>
   marketSignals: Signal[]
   contextSignals: Signal[]
   correlationSignals: Signal[]
+  longTermSignals: Signal[]
   freshnessNotes: Array<{
     dataset: string
     status: ManifestFreshness["status"]
@@ -276,10 +279,20 @@ export async function readCorrelations(cacheDate: string): Promise<CorrelationRe
   }
 }
 
-function sortSignals(signals: Signal[]): Signal[] {
+function horizonMultiplier(horizon: string, personaId: PersonaId): number {
+  if (personaId === "hni_equity") {
+    return horizon === "short" ? 1.3 : horizon === "medium" ? 1.0 : 0.7
+  }
+  // inst_fund: weight medium and long higher, short is a tactical overlay
+  return horizon === "short" ? 0.8 : horizon === "medium" ? 1.2 : 1.3
+}
+
+function sortSignals(signals: Signal[], personaId?: PersonaId): Signal[] {
   return [...signals].sort((left, right) => {
-    const leftScore = left.customer_relevance * left.persona_weight * left.confidence
-    const rightScore = right.customer_relevance * right.persona_weight * right.confidence
+    const leftMultiplier = personaId ? horizonMultiplier(left.time_horizon, personaId) : 1.0
+    const rightMultiplier = personaId ? horizonMultiplier(right.time_horizon, personaId) : 1.0
+    const leftScore = left.customer_relevance * left.persona_weight * left.confidence * leftMultiplier
+    const rightScore = right.customer_relevance * right.persona_weight * right.confidence * rightMultiplier
     return rightScore - leftScore
   })
 }
@@ -353,9 +366,10 @@ function signalMatchesAllocation(signal: Signal, allocation: CustomerAllocation)
 function selectMatchedSignals(
   signals: Signal[],
   allocations: CustomerAllocation[],
-  limit: number
+  limit: number,
+  personaId?: PersonaId
 ): Signal[] {
-  const ranked = sortSignals(signals)
+  const ranked = sortSignals(signals, personaId)
   const selected: Signal[] = []
   const usedIds = new Set<string>()
 
@@ -380,9 +394,10 @@ function selectMatchedSignals(
 function selectAllocationAnchoredSignals(
   signals: Signal[],
   allocations: CustomerAllocation[],
-  limit: number
+  limit: number,
+  personaId?: PersonaId
 ): Signal[] {
-  const ranked = sortSignals(signals)
+  const ranked = sortSignals(signals, personaId)
   const selected: Signal[] = []
   const usedIds = new Set<string>()
 
@@ -422,33 +437,41 @@ export function buildEvidencePack(input: {
   correlationRecords: CorrelationRecord[]
   cacheDate: string
 }): EvidencePack {
+  const personaId = input.customer.persona
+
   const marketSignals = selectAllocationAnchoredSignals(
     input.bundle.signals.filter((signal) =>
-      ["market_index", "sector_proxy_market", "sector_proxy_fundamental"].includes(
+      ["market_index", "sector_proxy_market"].includes(
         signal.category
       )
     ),
     input.customer.allocations,
-    4
+    6,
+    personaId
   )
 
   const macroSignals = sortSignals(
-    input.bundle.signals.filter((signal) => signal.category === "macro_series")
-  ).slice(0, input.customer.persona === "inst_fund" ? 2 : 1)
+    input.bundle.signals.filter((signal) => signal.category === "macro_series"),
+    personaId
+  ).slice(0, input.customer.persona === "inst_fund" ? 4 : 2)
 
   const matchedNewsSignals = selectMatchedSignals(
     input.bundle.signals.filter((signal) => signal.category === "news_event_signal"),
     input.customer.allocations,
-    2
+    input.customer.persona === "inst_fund" ? 4 : 3,
+    personaId
   )
 
-  const contextSignals = [...macroSignals, ...matchedNewsSignals].slice(0, 4)
+  const contextSignals = [...macroSignals, ...matchedNewsSignals].slice(0, 8)
 
   const correlationSignals = (() => {
     const matched = selectMatchedSignals(
-      input.bundle.signals.filter((signal) => signal.category === "correlation_signal"),
+      input.bundle.signals.filter(
+        (signal) => signal.category === "correlation_signal" && signal.time_horizon !== "long"
+      ),
       input.customer.allocations,
-      3
+      4,
+      personaId
     )
 
     if (matched.length > 0) {
@@ -456,10 +479,31 @@ export function buildEvidencePack(input: {
     }
 
     return selectAllocationAnchoredSignals(
-      input.bundle.signals.filter((signal) => signal.category === "correlation_signal"),
+      input.bundle.signals.filter(
+        (signal) => signal.category === "correlation_signal" && signal.time_horizon !== "long"
+      ),
       input.customer.allocations,
-      2
+      3,
+      personaId
     )
+  })()
+
+  const longTermSignals = (() => {
+    const longCorrelations = selectMatchedSignals(
+      input.bundle.signals.filter(
+        (signal) => signal.category === "correlation_signal" && signal.time_horizon === "long"
+      ),
+      input.customer.allocations,
+      3,
+      personaId
+    )
+    const longMacro = sortSignals(
+      input.bundle.signals.filter(
+        (signal) => signal.category === "macro_series" && signal.time_horizon === "long"
+      ),
+      personaId
+    ).slice(0, 2)
+    return [...longCorrelations, ...longMacro]
   })()
 
   const freshnessNotes = [
@@ -481,14 +525,16 @@ export function buildEvidencePack(input: {
     cacheDate: input.cacheDate,
     allocationAnchors: [...input.customer.allocations]
       .sort((left, right) => right.weight - left.weight)
-      .slice(0, 4)
+      .slice(0, 5)
       .map((allocation) => ({
         sector: allocation.sector,
         weight: allocation.weight,
+        key_holdings: allocation.key_holdings,
       })),
     marketSignals,
     contextSignals,
     correlationSignals,
+    longTermSignals,
     freshnessNotes,
   }
 }
@@ -547,7 +593,7 @@ export async function getDashboardView(selectedCustomerId?: string) {
     bundle,
     marketSignals: sortSignals(
       bundle.signals.filter((signal) =>
-        ["market_index", "sector_proxy_market", "sector_proxy_fundamental"].includes(
+        ["market_index", "sector_proxy_market"].includes(
           signal.category
         )
       )

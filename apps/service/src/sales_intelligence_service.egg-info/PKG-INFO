@@ -4,19 +4,12 @@ Version: 0.1.0
 Summary: Python jobs and domain services for the Macquarie Sales Intelligence Agent PoC.
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-Requires-Dist: anthropic>=0.49.0
-Requires-Dist: chromadb>=0.5.23
 Requires-Dist: fredapi>=0.5.2
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: numpy>=2.2.4
 Requires-Dist: pandas>=2.2.3
 Requires-Dist: pydantic>=2.11.1
-Requires-Dist: scipy>=1.15.2
-Requires-Dist: sentence-transformers>=3.4.1
 Requires-Dist: yfinance>=0.2.54
 Provides-Extra: dev
-Requires-Dist: mypy>=1.15.0; extra == "dev"
-Requires-Dist: pytest>=8.3.5; extra == "dev"
 Requires-Dist: ruff>=0.11.2; extra == "dev"
 
 # Sales Intelligence Service
@@ -37,3 +30,9 @@ Requires-Dist: ruff>=0.11.2; extra == "dev"
 - `src/jobs`: batch job entry points
 - `src/domain`: contracts and business logic
 - `src/adapters`: source-specific integration code
+
+## Preferred operator flow
+
+- `uv run python -m jobs.refresh_cache --date YYYY-MM-DD`
+
+This orchestrates raw ingest, correlation generation, and normalization in one step and is the default cache refresh entrypoint for the PoC.

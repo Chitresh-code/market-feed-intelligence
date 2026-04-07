@@ -1,13 +1,25 @@
+import { randomUUID } from "node:crypto"
+
 import { NextResponse } from "next/server"
 import OpenAI from "openai"
 
 import {
-  buildEvidencePrompt,
-  buildSystemPrompt,
+  buildPromptRenderContext,
   createLlmClient,
   getConfiguredModel,
+  getLlmRequestOptions,
+  loadPromptProfiles,
+  renderPromptProfile,
 } from "@/lib/briefing"
 import { getSummaryContext } from "@/lib/poc-data"
+import type {
+  SectionCompletedEvent,
+  SectionFailedEvent,
+  SectionStartedEvent,
+  SummaryCompletedEvent,
+  SummaryStartedEvent,
+  SummaryStreamEvent,
+} from "@/lib/summary-stream"
 
 function parseRequestBody(value: unknown): { customerId: string; date?: string } {
   if (!value || typeof value !== "object") {
@@ -29,49 +41,268 @@ function parseRequestBody(value: unknown): { customerId: string; date?: string }
   }
 }
 
+function encodeSseEvent(event: SummaryStreamEvent): string {
+  return `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`
+}
+
+function stripReasoningTags(raw: string): string {
+  let sanitized = raw
+    .replace(/<thought>[\s\S]*?<\/thought>/gi, "")
+    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
+    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
+    .replace(/<\/?(thought|thinking|reasoning)>/gi, "")
+
+  const openTags = ["<thought>", "<thinking>", "<reasoning>"]
+  for (const tag of openTags) {
+    const position = sanitized.toLowerCase().lastIndexOf(tag)
+    if (position >= 0) {
+      sanitized = sanitized.slice(0, position)
+    }
+  }
+
+  return sanitized
+}
+
+function extractMessageText(
+  content: OpenAI.Chat.Completions.ChatCompletionMessage["content"]
+): string {
+  if (typeof content === "string") {
+    return content
+  }
+
+  const parts = Array.isArray(content) ? (content as Array<Record<string, unknown>>) : null
+  if (!parts) {
+    return ""
+  }
+
+  return parts
+    .map((part) => (typeof part.text === "string" ? part.text : ""))
+    .join("")
+}
+
+function endsAbruptly(value: string): boolean {
+  if (!value) {
+    return true
+  }
+
+  return /[A-Za-z0-9,(]$/.test(value.trim())
+}
+
+function shouldRetryCompletion(value: string, finishReason: string | null): boolean {
+  return finishReason === "length" || value.trim().length === 0 || endsAbruptly(value)
+}
+
 export async function POST(request: Request) {
   try {
     const body = parseRequestBody(await request.json())
     const summaryContext = await getSummaryContext(body.customerId, body.date)
+    const profiles = await loadPromptProfiles()
     const client = createLlmClient()
     const model = getConfiguredModel()
-    const systemPrompt = buildSystemPrompt(summaryContext.evidencePack)
-    const userPrompt = buildEvidencePrompt(summaryContext.evidencePack)
-
-    const completion = await client.chat.completions.create({
-      model,
-      temperature: 0.2,
-      stream: true,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    })
+    const llmRequestOptions = getLlmRequestOptions()
+    const requestId = randomUUID()
+    const summaryStartedAt = new Date().toISOString()
 
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
       async start(controller) {
-        try {
-          for await (const chunk of completion) {
-            const content = chunk.choices[0]?.delta?.content
-            if (content) {
-              controller.enqueue(encoder.encode(content))
-            }
-          }
-          controller.close()
-        } catch (error) {
-          controller.error(error)
+        const send = (event: SummaryStreamEvent) => {
+          controller.enqueue(encoder.encode(encodeSseEvent(event)))
         }
+
+        send({
+          type: "summary.started",
+          data: {
+            requestId,
+            customerId: body.customerId,
+            cacheDate: summaryContext.cacheDate,
+            startedAt: summaryStartedAt,
+          } satisfies SummaryStartedEvent,
+        })
+
+        const tasks = profiles.map(async (profile) => {
+          const startedAt = new Date().toISOString()
+          send({
+            type: "section.started",
+            data: {
+              sectionId: profile.id,
+              title: profile.section_title,
+              startedAt,
+            } satisfies SectionStartedEvent,
+          })
+
+          try {
+            const renderContext = buildPromptRenderContext(summaryContext.evidencePack, profile.id)
+            const prompts = renderPromptProfile(profile, renderContext)
+
+            const baseMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+              { role: "system", content: prompts.systemPrompt },
+              { role: "user", content: prompts.userPrompt },
+            ]
+
+            const baseRequest: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
+              model,
+              temperature: profile.temperature,
+              stream: true,
+              messages: baseMessages,
+            }
+
+            const completion = await client.chat.completions.create(
+              llmRequestOptions.reasoningEffort
+                ? {
+                    ...baseRequest,
+                    reasoning_effort: llmRequestOptions.reasoningEffort as
+                      | "low"
+                      | "medium"
+                      | "high",
+                }
+                : baseRequest
+            )
+
+            let rawContent = ""
+            let emittedContent = ""
+            let firstTokenAt: string | null = null
+            let lastFinishReason: string | null = null
+
+            for await (const chunk of completion) {
+              const choice = chunk.choices[0]
+              const delta = choice?.delta?.content
+              const deltaMetadata = choice?.delta as
+                | ({ extra_content?: { google?: { thought?: boolean } } } & Record<string, unknown>)
+                | undefined
+              lastFinishReason = choice?.finish_reason ?? lastFinishReason
+
+              if (deltaMetadata?.extra_content?.google?.thought === true) {
+                continue
+              }
+
+              if (!delta) {
+                continue
+              }
+
+              rawContent += delta
+              const sanitizedContent = stripReasoningTags(rawContent)
+              const sanitizedDelta = sanitizedContent.slice(emittedContent.length)
+
+              if (!sanitizedDelta) {
+                continue
+              }
+
+              emittedContent = sanitizedContent
+              if (!firstTokenAt) {
+                firstTokenAt = new Date().toISOString()
+              }
+
+              send({
+                type: "section.delta",
+                data: {
+                  sectionId: profile.id,
+                  delta: sanitizedDelta,
+                },
+              })
+            }
+
+            let finalContent = emittedContent.trim()
+
+            if (shouldRetryCompletion(finalContent, lastFinishReason)) {
+              const retryMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+                { role: "system", content: prompts.systemPrompt },
+                { role: "user", content: prompts.userPrompt },
+              ]
+
+              const retryBaseRequest: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
+                model,
+                temperature: profile.temperature,
+                messages: retryMessages,
+              }
+
+              const retry = await client.chat.completions.create(
+                llmRequestOptions.reasoningEffort
+                  ? {
+                      ...retryBaseRequest,
+                      reasoning_effort: llmRequestOptions.reasoningEffort as
+                        | "low"
+                        | "medium"
+                        | "high",
+                    }
+                  : retryBaseRequest
+              )
+
+              const retriedContent = stripReasoningTags(
+                extractMessageText(retry.choices[0]?.message?.content).trim()
+              ).trim()
+
+              if (retriedContent.length > finalContent.length) {
+                finalContent = retriedContent
+              }
+            }
+
+            const completedAt = new Date().toISOString()
+            const firstTokenLatencyMs = firstTokenAt
+              ? new Date(firstTokenAt).getTime() - new Date(startedAt).getTime()
+              : null
+            const totalDurationMs =
+              new Date(completedAt).getTime() - new Date(startedAt).getTime()
+
+            send({
+              type: "section.completed",
+              data: {
+                sectionId: profile.id,
+                title: profile.section_title,
+                content: finalContent,
+                startedAt,
+                firstTokenAt,
+                completedAt,
+                firstTokenLatencyMs,
+                totalDurationMs,
+              } satisfies SectionCompletedEvent,
+            })
+          } catch (error) {
+            const failedAt = new Date().toISOString()
+            const errorMessage = error instanceof Error ? error.message : "Section generation failed."
+            console.error(
+              `[summary] section "${profile.id}" failed requestId=${requestId} customerId=${body.customerId}`,
+              error
+            )
+            send({
+              type: "section.failed",
+              data: {
+                sectionId: profile.id,
+                title: profile.section_title,
+                startedAt,
+                failedAt,
+                error: errorMessage,
+              } satisfies SectionFailedEvent,
+            })
+          }
+        })
+
+        await Promise.all(tasks)
+
+        const completedAt = new Date().toISOString()
+        send({
+          type: "summary.completed",
+          data: {
+            requestId,
+            completedAt,
+            totalDurationMs:
+              new Date(completedAt).getTime() - new Date(summaryStartedAt).getTime(),
+          } satisfies SummaryCompletedEvent,
+        })
+
+        controller.close()
       },
     })
 
     return new Response(stream, {
       headers: {
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-store",
+        Connection: "keep-alive",
       },
     })
   } catch (error) {
+    console.error("[summary] request failed", error)
     let message = error instanceof Error ? error.message : "Failed to generate summary."
     const status =
       message === "Request body must be a JSON object." ||

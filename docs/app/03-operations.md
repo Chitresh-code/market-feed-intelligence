@@ -39,6 +39,7 @@ Create `apps/web/.env.local` with:
 - `LLM_BASE_URL`
 - `LLM_API_KEY`
 - `LLM_MODEL`
+- `LLM_REASONING_EFFORT` optional
 
 ## Refresh workflow
 
@@ -76,6 +77,13 @@ Then:
 4. generate the brief
 5. export as Markdown or PDF if needed
 
+## Summary generation notes
+
+- The summary route uses four parallel section prompts defined in `apps/web/prompts`.
+- The route streams structured section events back to the UI rather than one monolithic text blob.
+- For Google’s `generativelanguage` OpenAI-compatible endpoint, `LLM_REASONING_EFFORT` is currently ignored because the endpoint returns `400` for the tested model path when that field is present.
+- If a provider leaks hidden reasoning tags such as `<thought>` into the stream, the route sanitizes them before rendering and export.
+
 ## Verification checklist
 
 ### Cache
@@ -92,6 +100,15 @@ Check:
 - sleeve-level commentary matches the client allocation mix
 - unsupported claims are not invented
 - stale macro context is acknowledged when relevant
+- `Client-Relevant Signals` stays analytical and does not collapse into `Talking Points`
+- `Talking Points` reads like RM conversation cues rather than a restatement of the analysis
+
+Horizon quality checks:
+- each sleeve or linkage sub-section contains explicit `**Short-term:**`, `**Medium-term:**`, and `**Long-term:**` labels
+- HNI briefings open with immediate price action and have concise long-term entries
+- institutional briefings give proportionally more weight to medium and long-term entries
+- long-term entries contain real data (cycle direction, 90d/180d delta, structural correlation narrative) rather than a generic "no data available" placeholder
+- `Talking Points` bullets open with `[Short-term]`, `[Medium-term]`, or `[Long-term]` tags and the full set covers all three horizons
 
 ### UI
 
@@ -102,7 +119,8 @@ Check:
 
 ## Demo-day guidance
 
-- refresh the target cache date before the session
+- run a full `refresh_cache` (not just `normalize`) before the session so the raw macro cache contains `delta_90d` and `delta_180d` fields; without them, long-term macro trend signals will not be generated
 - generate at least one brief per key demo client in advance for quality review
 - keep the dashboard focused on the 2-3 strongest client scenarios
+- verify that long-term entries contain actual cycle data (e.g. "yield has moved +0.22% over 180 days, gradual tightening bias") rather than a fallback placeholder
 - if a sleeve has limited direct coverage, prefer honest framing over filling the gap with generic market commentary
