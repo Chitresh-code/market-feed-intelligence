@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from adapters.base import FetchWindow
 from config import load_settings
 from domain.models import CacheManifest, FreshnessMetadata, NormalizedSignalBundle
-from jobs.correlate import build_correlation_records
 from jobs.ingest import (
     fetch_macro_dataset,
     fetch_market_dataset,
@@ -20,6 +19,7 @@ from repositories.cache_repository import CacheRepository
 from repositories.correlation_mapping_repository import CorrelationMappingRepository
 from repositories.customer_repository import CustomerRepository
 from repositories.persona_repository import PersonaRepository
+from services.correlation_resolver import build_correlation_records
 
 
 class RefreshOrchestrator:
@@ -44,9 +44,9 @@ class RefreshOrchestrator:
             macro_envelope = fetch_macro_dataset(window, self.settings.fred_api_key)
             news_envelope = fetch_news_dataset(window, self.settings.finnhub_api_key)
 
-            market_records = [record.model_dump(mode="json") for record in market_envelope.records]
-            macro_records = [record.model_dump(mode="json") for record in macro_envelope.records]
-            news_records = [record.model_dump(mode="json") for record in news_envelope.records]
+            market_records = list(market_envelope.records)
+            macro_records = list(macro_envelope.records)
+            news_records = list(news_envelope.records)
 
             self.repository.replace_raw_market_records(run.id, market_records)
             self.repository.replace_raw_macro_records(run.id, macro_records)

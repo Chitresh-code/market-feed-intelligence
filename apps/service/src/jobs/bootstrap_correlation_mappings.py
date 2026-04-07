@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 
 from db.session import init_db, session_scope
-from jobs.correlate import default_correlation_mappings
+from services.correlation_resolver import default_correlation_mappings
 from services.correlation_mapping_service import CorrelationMappingService
 
 

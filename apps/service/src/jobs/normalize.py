@@ -12,7 +12,6 @@ from domain.models import (
     NormalizedSignalBundle,
     TimeHorizon,
 )
-from services.refresh_orchestrator import RefreshOrchestrator
 
 
 def classify_signal_horizon(category: str, lookback_days: int = 0) -> TimeHorizon:
@@ -623,6 +622,8 @@ def normalize_customer_bundle(
         signals=[signal for _, signal in ranked_signals],
     )
 def main() -> None:
+    from services.refresh_orchestrator import RefreshOrchestrator
+
     args = parse_args()
     init_db()
     with session_scope() as session:

@@ -9,7 +9,6 @@ from adapters.fred_adapter import FredMacroAdapter, MacroSeriesSpec
 from adapters.yfinance_adapter import MarketTickerSpec, YFinanceMarketAdapter
 from db.session import init_db, session_scope
 from domain.models import RawDatasetEnvelope
-from services.refresh_orchestrator import RefreshOrchestrator
 
 
 def default_market_specs() -> list[MarketTickerSpec]:
@@ -80,6 +79,8 @@ def fetch_news_dataset(window: FetchWindow, api_key: str) -> RawDatasetEnvelope:
 
 
 def main() -> None:
+    from services.refresh_orchestrator import RefreshOrchestrator
+
     args = parse_args()
     init_db()
     with session_scope() as session:

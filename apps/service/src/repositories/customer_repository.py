@@ -32,7 +32,6 @@ class CustomerRepository:
         if row is None:
             row = CustomerModel(id=payload.id)
             self.session.add(row)
-            self.session.flush()
 
         row.name = payload.name
         row.persona_id = payload.persona

@@ -64,7 +64,7 @@ cd apps/service
 set -a
 source .env
 set +a
-uv run uvicorn api.app:app --reload --port 8001
+uv run uvicorn api.app:app --reload --port 8000
 ```
 
 ## Refresh workflow
