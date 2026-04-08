@@ -7,10 +7,20 @@ SERVICE_ENV_FILE="${SERVICE_ENV_FILE:-$SERVICE_DIR/.env}"
 HOST="${BACKEND_HOST:-0.0.0.0}"
 PORT="${BACKEND_PORT:-8000}"
 BOOTSTRAP="${BOOTSTRAP:-0}"
+PREPARE="${PREPARE:-0}"
 BOOTSTRAP_DAYS="${BOOTSTRAP_DAYS:-7}"
 BOOTSTRAP_END_DATE="${BOOTSTRAP_END_DATE:-$(date +%Y-%m-%d)}"
+UV_BIN="${UV_BIN:-}"
 
-if ! command -v uv >/dev/null 2>&1; then
+if [[ -z "$UV_BIN" ]] && command -v uv >/dev/null 2>&1; then
+  UV_BIN="$(command -v uv)"
+fi
+
+if [[ -z "$UV_BIN" ]] && [[ -x "$HOME/.local/bin/uv" ]]; then
+  UV_BIN="$HOME/.local/bin/uv"
+fi
+
+if [[ -z "$UV_BIN" ]]; then
   echo "uv is required but not installed." >&2
   exit 1
 fi
@@ -33,16 +43,18 @@ for var_name in "${required_vars[@]}"; do
   fi
 done
 
-echo "Preparing backend dependencies..."
-PYTHONPATH=src uv sync
+if [[ "$PREPARE" == "1" || ! -d "$SERVICE_DIR/.venv" ]]; then
+  echo "Preparing backend dependencies..."
+  PYTHONPATH=src "$UV_BIN" sync
+fi
 
 if [[ "$BOOTSTRAP" == "1" ]]; then
   echo "Bootstrapping personas, customers, correlation mappings, and ${BOOTSTRAP_DAYS} day history..."
-  PYTHONPATH=src uv run python -m jobs.bootstrap_personas
-  PYTHONPATH=src uv run python -m jobs.bootstrap_customers
-  PYTHONPATH=src uv run python -m jobs.bootstrap_correlation_mappings
-  PYTHONPATH=src uv run python -m jobs.bootstrap_history --days "$BOOTSTRAP_DAYS" --end-date "$BOOTSTRAP_END_DATE"
+  PYTHONPATH=src "$UV_BIN" run python -m jobs.bootstrap_personas
+  PYTHONPATH=src "$UV_BIN" run python -m jobs.bootstrap_customers
+  PYTHONPATH=src "$UV_BIN" run python -m jobs.bootstrap_correlation_mappings
+  PYTHONPATH=src "$UV_BIN" run python -m jobs.bootstrap_history --days "$BOOTSTRAP_DAYS" --end-date "$BOOTSTRAP_END_DATE"
 fi
 
 echo "Starting backend on ${HOST}:${PORT}..."
-exec env PYTHONPATH=src uv run uvicorn api.app:app --host "$HOST" --port "$PORT"
+exec env PYTHONPATH=src "$UV_BIN" run uvicorn api.app:app --host "$HOST" --port "$PORT"

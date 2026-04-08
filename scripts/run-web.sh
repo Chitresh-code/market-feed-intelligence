@@ -6,7 +6,7 @@ WEB_DIR="$ROOT_DIR/apps/web"
 WEB_ENV_FILE="${WEB_ENV_FILE:-$WEB_DIR/.env}"
 HOST="${FRONTEND_HOST:-0.0.0.0}"
 PORT="${FRONTEND_PORT:-3000}"
-INSTALL_ONLY="${INSTALL_ONLY:-0}"
+PREPARE="${PREPARE:-0}"
 
 if ! command -v npm >/dev/null 2>&1; then
   echo "npm is required but not installed." >&2
@@ -31,15 +31,14 @@ for var_name in "${required_vars[@]}"; do
   fi
 done
 
-echo "Preparing frontend dependencies..."
-npm install
+if [[ "$PREPARE" == "1" || ! -d "$WEB_DIR/node_modules" ]]; then
+  echo "Preparing frontend dependencies..."
+  npm install
+fi
 
-echo "Building frontend..."
-npm run build
-
-if [[ "$INSTALL_ONLY" == "1" ]]; then
-  echo "Frontend prepared successfully."
-  exit 0
+if [[ "$PREPARE" == "1" || ! -f "$WEB_DIR/.next/BUILD_ID" ]]; then
+  echo "Building frontend..."
+  npm run build
 fi
 
 echo "Starting frontend on ${HOST}:${PORT}..."

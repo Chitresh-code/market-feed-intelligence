@@ -10,8 +10,11 @@ WorkingDirectory=/home/ubuntu/market-feed-intelligence
 ExecStart=/home/ubuntu/market-feed-intelligence/scripts/run-web.sh
 Restart=always
 RestartSec=5
+Environment=HOME=/home/ubuntu
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=FRONTEND_HOST=127.0.0.1
 Environment=FRONTEND_PORT=3000
+Environment=PREPARE=0
 
 [Install]
 WantedBy=multi-user.target

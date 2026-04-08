@@ -110,6 +110,8 @@ Repository-provided deployment assets:
 On the VM:
 
 ```bash
+PREPARE=1 ./scripts/run-api.sh
+PREPARE=1 ./scripts/run-web.sh
 ./scripts/setup-vm.sh
 sudo systemctl start market-feed-api.service
 sudo systemctl start market-feed-web.service

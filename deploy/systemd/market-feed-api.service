@@ -9,8 +9,11 @@ WorkingDirectory=/home/ubuntu/market-feed-intelligence
 ExecStart=/home/ubuntu/market-feed-intelligence/scripts/run-api.sh
 Restart=always
 RestartSec=5
+Environment=HOME=/home/ubuntu
+Environment=PATH=/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=BACKEND_HOST=127.0.0.1
 Environment=BACKEND_PORT=8000
+Environment=PREPARE=0
 
 [Install]
 WantedBy=multi-user.target
