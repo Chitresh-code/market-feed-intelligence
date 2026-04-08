@@ -50,6 +50,8 @@
 }
 
 :root {
+    --font-sans: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
     --background: oklch(1 0 0);
     --foreground: oklch(0.148 0.004 228.8);
     --card: oklch(1 0 0);
