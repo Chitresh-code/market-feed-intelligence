@@ -294,7 +294,10 @@ export async function POST(request: Request) {
           } satisfies SummaryStartedEvent,
         })
 
-        const tasks = profiles.map(async (profile): Promise<SectionResult> => {
+        async function generateSection(
+          profile: (typeof profiles)[number],
+          priorSectionClaims: string
+        ): Promise<SectionResult> {
           const startedAt = new Date().toISOString()
           send({
             type: "section.started",
@@ -306,7 +309,11 @@ export async function POST(request: Request) {
           })
 
           try {
-            const renderContext = buildPromptRenderContext(summaryContext.evidencePack, profile.id)
+            const renderContext = buildPromptRenderContext(
+              summaryContext.evidencePack,
+              profile.id,
+              priorSectionClaims
+            )
             const prompts = renderPromptProfile(profile, renderContext)
 
             const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -382,15 +389,37 @@ export async function POST(request: Request) {
               failedAt,
             }
           }
-        })
+        }
 
-        const results = await Promise.all(tasks)
+        // Phase 1: run the three body sections in parallel — no cross-section claims yet.
+        const bodyProfiles = profiles.filter((p) => p.id !== "talking-points")
+        const talkingPointsProfile = profiles.find((p) => p.id === "talking-points")!
+
+        const bodyResults = await Promise.all(
+          bodyProfiles.map((profile) => generateSection(profile, ""))
+        )
+
+        // Build a concise prior-claims summary from completed body sections so that
+        // talking-points can avoid restating what has already been written.
+        function extractOpeningParagraph(content: string): string {
+          const firstBreak = content.indexOf("\n\n")
+          return firstBreak >= 0 ? content.slice(0, firstBreak).trim() : content.slice(0, 500).trim()
+        }
+
+        const priorSectionClaims = bodyResults
+          .filter((r): r is Extract<SectionResult, { status: "completed" }> => r.status === "completed")
+          .map((r) => `[${r.title}]\n${extractOpeningParagraph(r.content)}`)
+          .join("\n\n")
+
+        // Phase 2: run talking-points sequentially after body sections, with prior claims.
+        const talkingPointsResult = await generateSection(talkingPointsProfile, priorSectionClaims)
+
+        const results = [...bodyResults, talkingPointsResult]
         const resultBySection = Object.fromEntries(
           results.map((result) => [result.sectionId, result])
         ) as Record<SummarySectionId, SectionResult>
         let talkingPointsRendered = ""
 
-        const talkingPointsResult = resultBySection["talking-points"]
         if (talkingPointsResult.status === "completed") {
           const revealStartedAt = talkingPointsResult.startedAt
           let firstTokenAt: string | null = null

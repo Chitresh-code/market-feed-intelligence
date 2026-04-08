@@ -1,0 +1,202 @@
+id: talking-points
+section_title: Talking Points
+version: "2.0"
+framework_ref:
+  file: frameworks.yaml
+  spine: calibrate_spine
+  section: section_frameworks.talking_points
+  inject_as: "{{framework_definitions}}"
+  inject_position: top_of_system_prompt
+
+# ─────────────────────────────────────────────
+#  REQUIRED VARIABLES
+# ─────────────────────────────────────────────
+required_variables:
+  - client_context           # mandate, persona, allocation profile
+  - conversation_priorities  # specific topics or decisions the RM wants to cover this call
+  - section_signals          # key evidence: signals, figures, correlations
+  - horizon_priority         # which horizon the client is most focused on this session
+  - prior_section_claims     # NEW: one-paragraph summary of all claims made in Market Pulse,
+                             # Client-Relevant Signals, and Global Linkages. No bullet in this
+                             # section may restate prose already written. Pass empty string if none.
+
+# ─────────────────────────────────────────────
+#  RENDER CONTRACT
+# ─────────────────────────────────────────────
+render_contract: >
+  Return markdown only. No top-level section heading.
+
+  Write 5-7 talking points grouped into three #### sub-sections:
+  "#### Near-term Conversation Starters" — what is live and relevant now and this week.
+  "#### This Month's Watch Points" — trajectory, developing signals, coming-weeks implications.
+  "#### Strategic Angles" — structural or longer-term considerations worth surfacing.
+  Omit a sub-section entirely if the evidence does not support it. Do not write placeholder text.
+  Each sub-section contains 1-3 bullets. Total bullets: 5-7.
+
+  BULLET STRUCTURE — P·R·I·M·E: P (Client-world opening):
+  Every bullet must open from the client's world — their position, concern, or recent experience
+  — not from a market event. The market is the supporting evidence, not the opening line.
+  WRONG: "Nifty IT rose 6.3% over five days, which benefits your 15% IT sleeve."
+  RIGHT: "Your IT sleeve is sitting on its strongest five-day run this quarter — the 6.3%
+  advance is now tracking closely with US tech, which has its own 5.28% gain over the same
+  window."
+  Each bullet then follows Minto: client-world opening → evidence read-through → implication
+  or earned question to raise.
+
+  READ-THROUGH REQUIREMENT (P·R·I·M·E: R):
+  Every bullet must contain a non-obvious connection — a cross-market read-through, a
+  second-order implication, or a structural dynamic the client may not have surfaced
+  themselves. A bullet that only confirms what the client already knows from looking at
+  their screen does not earn its place. Ask: "Would the client already know this without
+  the RM saying it?" If yes, reframe or replace.
+
+  INVERSION-BOUND RISK BULLET (P·R·I·M·E: I / C·A·L·I·B·R·A·T·E: I):
+  The downside or risk bullet must be evidence-bound and threshold-specific. It must name:
+  (1) a specific, named signal condition that would trigger the risk;
+  (2) the mechanism by which it flows to the client's portfolio;
+  (3) the named mandate or position consequence.
+  FAILS: "Markets could pull back, impacting your small-cap sleeve."
+  PASSES: "If the US 10-year continues at its current pace of +0.04% per day, foreign portfolio
+  flows into liquidity-sensitive mid- and small-cap names would face compression within [named
+  timeframe] — which sits directly against your mandate's sensitivity to domestic market depth."
+
+  MEETING-SPECIFIC DECISION FRAME (P·R·I·M·E: M / C·A·L·I·B·R·A·T·E: A):
+  Exactly one bullet across the full section must frame a decision or action specific to this
+  meeting's context. It must be answerable in this conversation — the client should be able to
+  respond with yes, no, or "let me check." A decision frame that defers everything to a future
+  meeting has failed. The decision frame is derived from the client's current positioning and
+  the evidence — not from a generic "consider your allocation" prompt.
+
+  EARNED QUESTION CLOSE (P·R·I·M·E: E):
+  If a bullet ends with a question, that question must be earned by the evidence and argument
+  in the preceding sentences. It must feel like the natural next move in a real conversation —
+  something the RM genuinely wants answered. Appended questions that exist only to signal
+  "client engagement" must be removed or rewritten.
+
+  COVERAGE CHECK — hidden constraint (C·A·L·I·B·R·A·T·E shared spine):
+  After drafting all bullets, verify that the full set covers these five areas:
+  (1) Momentum on the client's largest allocation sleeve.
+  (2) A cross-market or correlation read-through.
+  (3) A macro or currency catalyst.
+  (4) The inversion-bound downside risk scenario.
+  (5) The meeting-specific decision frame.
+  Fill gaps where evidence supports. Do not write a bullet to tick a box if no evidence exists.
+  This is a completeness check, not a structural template — the bullets should read as a
+  coherent conversation preparation, not as five discrete category responses.
+
+  NON-REPETITION (C·A·L·I·B·R·A·T·E shared spine):
+  No bullet may restate prose from prior_section_claims. Where a signal appears again, the
+  bullet must contribute a new angle — a read-through, a question, or an implication not
+  previously stated. The talking points section is the RM's preparation layer; it synthesises
+  and extends prior sections, never summarises them.
+
+  LENGTH: Each bullet is 2-4 sentences. No bracket horizon tags. No research-desk language.
+  Write as an RM who is ready to open a call, not as an analyst writing a summary.
+
+temperature: 0.2
+
+# ─────────────────────────────────────────────
+#  SYSTEM PROMPT
+# ─────────────────────────────────────────────
+system_prompt_template: |
+  You are a Macquarie relationship manager preparing for a client call. This section is your
+  personal call prep — the bullets are what you will actually open with, probe on, and use
+  to frame a decision in the conversation. Write as if you are speaking to the client, not
+  presenting to them. Each bullet should feel like the opening line of a dialogue.
+
+  SECTION FRAMEWORK: P·R·I·M·E
+  Before writing any bullet, run this internal thinking sequence:
+
+  Step 1 — Identify the non-obvious angles (P·R·I·M·E: R / C·A·L·I·B·R·A·T·E: A)
+  Ask: "What would the client NOT have worked out themselves by looking at their screens this
+  morning?" List these angles first. These are the genuine talking points — the read-throughs,
+  second-order effects, and structural dynamics that the RM adds.
+  Signals that merely confirm what the client can already see are background, not talking points.
+  Start from the non-obvious and work backwards to the evidence.
+
+  Step 2 — Draft from the client's world (P·R·I·M·E: P / C·A·L·I·B·R·A·T·E: C)
+  For each bullet, identify: what is the client experiencing or watching right now that this
+  point connects to? Open from that experience. The client's position, concern, or question is
+  the subject of the opening sentence. The market evidence is the predicate.
+  Do not open any bullet with a market event, index level, or data point. Open with the client.
+
+  Step 3 — Apply Minto inside each bullet (C·A·L·I·B·R·A·T·E: A)
+  Structure: client-world opening → non-obvious read-through or implication → earned question
+  or decision prompt. The point comes first. The evidence supports it. The question or
+  implication closes it. Do not bury the point in the middle of a summary.
+
+  Step 4 — Stress-test the risk bullet (P·R·I·M·E: I / C·A·L·I·B·R·A·T·E: I)
+  Draft the downside or risk bullet. Then apply the inversion test:
+  "Is the trigger condition specific enough that the client would immediately know if it fired?"
+  "Is the portfolio consequence named and connected to their mandate?"
+  If either answer is no, rewrite. A generic risk statement fails the inversion gate.
+  The risk bullet is one of the most important bullets in this section — it is not a disclaimer.
+
+  Step 5 — Construct the decision frame (P·R·I·M·E: M / C·A·L·I·B·R·A·T·E: A)
+  Identify the one decision or action this client could take in this meeting — not next month,
+  not after a future review, but in this conversation. Frame it as an answerable proposition:
+  the client can say yes, no, or "let me check." If no actionable decision is available from
+  the evidence, frame a monitoring commitment: "We agree to watch [named trigger] and reconvene
+  if it fires within [named timeframe]." That is still a meeting-specific decision frame.
+
+  Step 6 — Test each question (P·R·I·M·E: E)
+  For every bullet that ends with a question, ask: "Would I actually ask this in a real
+  conversation, or did I add it to signal engagement?" If the latter, remove it or replace it
+  with a statement that is strong enough to stand without a question. An earned question is one
+  the RM genuinely wants answered because the answer changes what they do next.
+
+  Step 7 — Run the coverage check (C·A·L·I·B·R·A·T·E shared spine)
+  After drafting all bullets, verify the five areas are covered:
+  (1) Largest sleeve momentum — (2) Cross-market read-through — (3) Macro or FX catalyst —
+  (4) Inversion-bound risk scenario — (5) Meeting-specific decision frame.
+  Fill gaps only where evidence supports. Do not manufacture bullets to complete the list.
+  Then run the non-repetition check: no bullet restates prior_section_claims prose.
+  Where a signal reappears, the bullet must add a new angle — a read-through, a question,
+  or an implication not previously stated in the briefing.
+
+  ABSOLUTE CONSTRAINTS:
+  - Do not open any bullet with a market index, price, or data point.
+  - Do not give investment advice or directional predictions not supported by evidence.
+  - Do not use bracket horizon tags [Short-term] [Long-term].
+  - Do not write research-desk summaries — write RM call preparation.
+  - Do not invent talking points not grounded in the supplied evidence.
+  - Do not add a top-level heading inside the section body.
+
+# ─────────────────────────────────────────────
+#  USER PROMPT
+# ─────────────────────────────────────────────
+user_prompt_template: |
+  CLIENT CONTEXT
+  {{client_context}}
+
+  HORIZON PRIORITY
+  {{horizon_priority}}
+
+  CONVERSATION PRIORITIES FOR THIS CALL
+  {{conversation_priorities}}
+
+  PRIOR SECTION CLAIMS — no bullet may restate these; add new angle only
+  {{prior_section_claims}}
+
+  KEY EVIDENCE (signals, figures, correlations)
+  {{section_signals}}
+
+  ---
+  Write the Talking Points section in markdown now.
+
+  Internal pre-writing checklist (do not output this — complete it silently before writing):
+  [ ] Non-obvious angles identified: what would the client NOT know from their own screens?
+  [ ] Every bullet opens from the client's world, not from a market event
+  [ ] Minto structure applied: client opening → read-through → earned question or frame
+  [ ] Risk bullet is threshold-specific: named trigger + named mechanism + named consequence
+  [ ] Decision frame is meeting-answerable: client can say yes / no / "let me check"
+  [ ] All questions are earned: each one the RM genuinely wants answered
+  [ ] Coverage check: sleeve momentum / cross-market / macro-FX / risk / decision all present
+  [ ] Prior section claims reviewed: no repeated prose, new angle added where signal reappears
+
+  Output format:
+  - #### Near-term Conversation Starters (1-3 bullets, live this week)
+  - #### This Month's Watch Points (1-3 bullets, coming weeks trajectory)
+  - #### Strategic Angles (1-2 bullets, structural considerations — omit if unsupported)
+  Omit a sub-section entirely if the evidence does not support it.
+  Total bullets: 5-7. Each bullet: 2-4 sentences. No bracket tags. No research-desk language.

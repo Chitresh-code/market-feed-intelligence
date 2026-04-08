@@ -29,7 +29,34 @@ type LlmRequestOptions = {
 
 const repoRoot = path.join(process.cwd(), "..", "..")
 const promptsRoot = path.join(repoRoot, "apps", "web", "prompts")
+// CALIBRATE spine — nine quality gates that apply to every section.
+// One-liners + self-tests extracted from prompts/v2/frameworks.yaml.
+// Full definitions are omitted to keep token cost low; section-specific
+// system prompts carry the deeper elaboration where needed.
+const calibrateSpine = `
+ACTIVE QUALITY GATES — C·A·L·I·B·R·A·T·E (apply to every sentence, every section)
+
+C — Client centrality: Every sentence must be traceable to this specific client's mandate, allocation profile, and stated objectives. Self-test: "Would this sentence be identical for a different client with a different mandate?" If yes — rewrite it.
+
+A — Asymmetry first: Lead with what is non-obvious or directionally different from the prior session. Confirming signals earn brief treatment; challenging or surprising signals earn the lead. Self-test: "Would the client already know this without the RM saying it?" If yes — reframe or replace.
+
+L — Linkage primacy: Transmission paths are more valuable than point-in-time signals. Name the mechanism — why the signal matters and how it travels to the client's specific sleeve. Self-test: "Have I explained why this signal matters and how it reaches this client's position, or only described what it shows?"
+
+I — Inversion gate: Before finalising any constructive signal or positive read, name the specific condition that would make it wrong. If that falsifying condition is already visible in the data, name it explicitly as a tension or risk. Self-test: "What would have to be true for this conclusion to be wrong? Is that condition present in the data?"
+
+B — Bayesian freshness: Signals more than 2 days old must be framed as "directionally" or "as of [date]" — never cited with the same certainty as live data. Do not suppress stale signals; downgrade their language. Self-test: "Am I treating any stale figure with the same certainty as a live signal?"
+
+R — Regime awareness: Classify the session regime (risk-on / risk-off / transitional) before writing. This classification is internal only — do not output it. Let it govern tone consistently from opening to closing paragraph. Self-test: "Is my tone consistent from opening to close, or have I mixed risk-on and risk-off language without naming the tension?"
+
+A — Action framing: Every section must embed at least one decision prompt, monitoring trigger, or action frame specific to this client and this meeting. Generic prompts ("consider your allocation") do not qualify. Self-test: "After reading this section, does the RM know what to do, ask, or monitor — specifically for this client, this meeting, this evidence?"
+
+T — Tension surfacing: Find and name the central contradiction in the evidence. Do not resolve it prematurely into a false coherence the data does not support. Self-test: "Have I told the client something reassuring that the data does not fully support? If short-term and structural signals disagree, have I named that?"
+
+E — Evidence traceability: Every quantified claim maps to exactly one named signal in the supplied data. No rounding to vagueness, no invented context, no implied figures. Self-test: "Can I point to the exact supplied signal for every figure I have cited? Have I invented or implied any number not in the data?"
+`.trim()
+
 const sharedOutputGuardrail = [
+  calibrateSpine,
   "Return only the final answer content for this section.",
   "Do not emit chain-of-thought, scratchpad reasoning, hidden analysis, or self-reflection.",
   "Do not output <thought>, <thinking>, <reasoning>, or similar tags.",
@@ -38,7 +65,7 @@ const sharedOutputGuardrail = [
   "If evidence coverage is limited, say so explicitly instead of filling the gap with generic market commentary.",
   "Do not give investment advice, target prices, portfolio actions, or unsupported predictions.",
   "Write in the client's persona-appropriate tone: direct and numbers-forward for HNI equity, analytical and regime-aware for institutional mandates.",
-].join(" ")
+].join("\n\n")
 
 function formatSignalLine(signal: Signal, index: number): string {
   return `${index + 1}. ${signal.label} | ${signal.category} | source=${signal.source} | as_of=${signal.as_of} | relevance=${signal.customer_relevance.toFixed(2)} | confidence=${signal.confidence.toFixed(2)} | narrative=${signal.narrative}`
@@ -71,9 +98,6 @@ function formatSignalsByHorizon(signals: Signal[]): string {
   for (const { key, label } of horizonOrder) {
     const group = grouped[key]
     if (key === "long" && group.length === 0) {
-      sections.push(
-        `${label}:\n[No long-term signals available in current data. Confine long-term observations to the trajectory implied by medium-term evidence and flag the limitation explicitly.]`
-      )
       continue
     }
     if (group.length === 0) {
@@ -283,7 +307,8 @@ function getSectionSignals(evidence: EvidencePack, sectionId: SummarySectionId):
 
 export function buildPromptRenderContext(
   evidence: EvidencePack,
-  sectionId: SummarySectionId
+  sectionId: SummarySectionId,
+  priorSectionClaims: string = ""
 ): PromptRenderContext {
   return {
     client_context: buildClientContext(evidence),
@@ -293,6 +318,7 @@ export function buildPromptRenderContext(
     freshness_notes: buildFreshnessNotes(evidence),
     section_signals: formatSignalsByHorizon(getSectionSignals(evidence, sectionId)),
     horizon_priority: buildHorizonPriority(evidence),
+    prior_section_claims: priorSectionClaims,
   }
 }
 

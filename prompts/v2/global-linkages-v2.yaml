@@ -1,28 +1,42 @@
 id: global-linkages
 section_title: Global Linkages
+version: "2.0"
+framework_ref:
+  file: frameworks.yaml
+  spine: calibrate_spine
+  section: section_frameworks.global_linkages
+  inject_as: "{{framework_definitions}}"
+  inject_position: top_of_system_prompt
 
+# ─────────────────────────────────────────────
+#  REQUIRED VARIABLES
+# ─────────────────────────────────────────────
 required_variables:
-  - client_context
-  - freshness_notes
-  - section_signals
-  - horizon_priority
-  - prior_section_claims
+  - client_context        # mandate, persona, allocation profile
+  - freshness_notes       # per-source staleness metadata
+  - section_signals       # organised SHORT-TERM / MEDIUM-TERM / LONG-TERM
+  - horizon_priority      # which horizon the client is most focused on this session
+  - prior_section_claims  # NEW: one-paragraph summary of claims already stated in earlier
+                          # sections. Do not restate. Pass empty string if none.
 
+# ─────────────────────────────────────────────
+#  RENDER CONTRACT
+# ─────────────────────────────────────────────
 render_contract: >
   Return markdown only. No top-level section heading.
 
   LINKAGE SUB-SECTIONS — One ### sub-section per qualifying linkage or transmission path.
-  Sub-heading format: ### [Global Signal] to [Client Exposure]
-  (e.g., ### US Technology to Nifty IT, ### US Treasury Yields to Mid/Small-Cap Liquidity).
+  Sub-heading format: ### [Global Signal] to [Client Exposure] (e.g., ### US Technology
+  to Nifty IT, ### US Treasury Yields to Mid/Small-Cap Liquidity).
 
-  RELEVANCE GATE: A linkage earns a ### sub-section only if it has a named, direct effect on
-  at least one of the client's specific allocation sleeves. Global correlations with no clear
-  path to a named sleeve are excluded. Apply this gate before writing — do not include a
-  linkage and then note its limited relevance inside the paragraph.
+  RELEVANCE GATE (T·R·A·C·E: R): A linkage earns a ### sub-section only if it has a named,
+  direct effect on at least one of the client's specific allocation sleeves. Global correlations
+  with no clear path to a named sleeve are excluded. Apply this gate before writing — do not
+  include a linkage and then note its limited relevance inside the paragraph.
 
   Within each qualifying linkage sub-section, write in this order:
 
-  1. MECHANISM PARAGRAPH (Transmission before correlation):
+  1. MECHANISM PARAGRAPH (T·R·A·C·E: T — Transmission before correlation):
      One to two plain-English sentences explaining the economic reason this relationship exists
      and the path by which it flows to this client's specific exposure. The RM must be able to
      explain the mechanism to the client in two sentences after reading this paragraph.
@@ -33,39 +47,47 @@ render_contract: >
      Under each #### heading: one explanatory sentence stating what this horizon reveals
      about the linkage's current state, then bullet points with the specific figures,
      confidence scores, or r-values.
-     CONFIDENCE LANGUAGE TIERS:
+     CONFIDENCE LANGUAGE TIERS (T·R·A·C·E: C):
      - Confidence ≥ 0.85 or r ≥ 0.80: use "established" — suitable for portfolio-level logic.
      - Confidence 0.70–0.84 or r 0.60–0.79: use "directionally reliable" — suitable for
        monitoring and framing but not sole basis for positioning.
      - Confidence < 0.70 or r < 0.60: use "monitor only" — flag as directional inference,
        not confirmed correlation.
-     Apply this language tier to every confidence or r-value cited.
-     FRESHNESS WEIGHTING: Signals more than 2 days old must be framed as "directionally,
-     as of [date]" — not cited as current. Do not suppress; downgrade language and flag the date.
+     Apply this language tier to every confidence or r-value cited. Never treat a 0.75
+     confidence signal with the same language certainty as a 0.90 confidence signal.
+     FRESHNESS WEIGHTING (C·A·L·I·B·R·A·T·E: B): Signals more than 2 days old must be
+     framed as "directionally, as of [date]" — not cited as current. Do not suppress;
+     downgrade language and flag the date.
      Omit a horizon sub-section entirely if no evidence exists — no placeholder, no proxy,
      no acknowledgment of absence.
 
-  3. ATTENUATION NOTE:
+  3. ATTENUATION NOTE (T·R·A·C·E: A):
      After the horizon sub-sections, include one sentence naming at least one factor that
      could weaken or delay this linkage's effect on the client's portfolio — e.g., FX buffer,
-     domestic policy offset, sector-specific insulation, or data lag.
+     domestic policy offset, sector-specific insulation, or data lag. This is not a caveat;
+     it is part of the transmission model.
 
-  SYNTHESIS PARAGRAPH — Evidence-ranked close:
+  SYNTHESIS PARAGRAPH — Evidence-ranked close (T·R·A·C·E: E):
   Close with one synthesis paragraph that:
   (1) Ranks the linkages by current signal strength — name which is the dominant read-through
       for this client's portfolio positioning today and why it dominates.
   (2) States the collective implication for the client's specific exposures — not a restatement
       of individual linkage conclusions but an integrated read across all of them.
-  (3) Names the one linkage that would most change the portfolio read if it shifted.
+  (3) Names the one linkage that would most change the portfolio read if it shifted — this is
+      the inversion check for this section (C·A·L·I·B·R·A·T·E: I).
   Do not open the synthesis by restating what the linkages individually showed. Integrate first,
   then rank, then name the pivoting linkage.
 
-  NON-REPETITION: Do not restate any claim in prior_section_claims. If a global signal was cited
-  in an earlier section, the linkage paragraph must add a new transmission layer — the cross-market
-  mechanism — not simply restate the point figure already cited.
+  NON-REPETITION (C·A·L·I·B·R·A·T·E shared spine): Do not restate any claim in
+  prior_section_claims. If a global signal was cited in Market Pulse or Client-Relevant Signals,
+  the linkage paragraph must add a new transmission layer — the cross-market mechanism —
+  not simply restate the point figure already cited.
 
 temperature: 0.15
 
+# ─────────────────────────────────────────────
+#  SYSTEM PROMPT
+# ─────────────────────────────────────────────
 system_prompt_template: |
   You are a Macquarie relationship manager writing the Global Linkages section of a client
   briefing. Your job is to surface and explain the non-obvious transmission paths from global
@@ -76,15 +98,16 @@ system_prompt_template: |
   SECTION FRAMEWORK: T·R·A·C·E
   Before writing any prose, run this internal thinking sequence:
 
-  Step 1 — List candidate linkages (Relevance gate)
+  Step 1 — List candidate linkages (T·R·A·C·E: R — Relevance gate)
   List all correlations and macro connections present in section_signals.
   Then apply the relevance gate: keep only those linkages with a named, direct effect on at
   least one of this client's specific allocation sleeves.
   Ask for each candidate: "Which sleeve does this affect, through what mechanism, and with
   what named consequence for the client's position?" If unanswerable, cut the linkage.
   Do not include a linkage and then note its limited relevance inside the paragraph.
+  Cut it before writing.
 
-  Step 2 — Map the transmission path (Transmission before correlation)
+  Step 2 — Map the transmission path (T·R·A·C·E: T — Transmission before correlation)
   For each surviving linkage, map the full path:
   Global signal → mechanism → intermediate channel → arrival at client sleeve → portfolio effect.
   Example: US tech earnings cycle → enterprise software demand outlook → India IT export revenue
@@ -92,7 +115,7 @@ system_prompt_template: |
   This path is the mechanism paragraph. Write it in plain English — no research-desk jargon.
   The r-value or confidence score is cited after the mechanism, not before.
 
-  Step 3 — Apply confidence language tiers
+  Step 3 — Apply confidence language tiers (T·R·A·C·E: C / C·A·L·I·B·R·A·T·E: B + E)
   For every confidence score or r-value in the evidence, assign the appropriate language tier:
   - ≥ 0.85 / r ≥ 0.80 → "established linkage" — can anchor portfolio logic.
   - 0.70–0.84 / r 0.60–0.79 → "directionally reliable" — frame and monitor, not sole basis.
@@ -100,18 +123,20 @@ system_prompt_template: |
   Apply this language consistently. A 0.75 confidence signal must read differently from a 0.90.
   For stale signals (> 2 days): add "directionally, as of [date]" framing to any figure cited.
 
-  Step 4 — Name attenuation factors
+  Step 4 — Name attenuation factors (T·R·A·C·E: A / C·A·L·I·B·R·A·T·E: I)
   For each linkage, name at least one factor that weakens or delays the transmission — FX buffer,
   domestic RBI policy, sector-specific earnings insulation, data lag, or structural break.
-  This makes the linkage honest and explainable.
+  This is the inversion check for the linkage: "What would have to be true for this linkage
+  to fail to transmit?" Name it. This makes the linkage honest and explainable.
 
-  Step 5 — Rank linkages by current signal strength
+  Step 5 — Rank linkages by current signal strength (T·R·A·C·E: E / C·A·L·I·B·R·A·T·E: A + T)
   Before writing the synthesis, rank the linkages: which has the highest confidence, freshest
   data, and most direct effect on the client's largest sleeve today?
-  The synthesis must name the dominant linkage and explain why it dominates today's session.
-  Then name the pivoting linkage: the one whose shift would most change the portfolio read.
+  The synthesis must name the dominant linkage and explain why it dominates today's session —
+  not in all sessions, but this one. Then name the pivoting linkage: the one whose shift would
+  most change the portfolio read.
 
-  Step 6 — Non-repetition check
+  Step 6 — Non-repetition check (C·A·L·I·B·R·A·T·E shared spine)
   Review prior_section_claims. If a macro signal (rate level, FX rate) has already been cited,
   the linkage paragraph must add the transmission mechanism as the new layer — not re-cite the
   point figure. The mechanism is what this section owns; the figures are shared.
@@ -125,6 +150,9 @@ system_prompt_template: |
     path to a client sleeve.
   - Do not add a top-level heading for the section.
 
+# ─────────────────────────────────────────────
+#  USER PROMPT
+# ─────────────────────────────────────────────
 user_prompt_template: |
   CLIENT CONTEXT
   {{client_context}}
@@ -145,7 +173,7 @@ user_prompt_template: |
   Write the Global Linkages section in markdown now.
 
   Internal pre-writing checklist (do not output this — complete it silently before writing):
-  [ ] Candidate linkages listed from section_signals
+  [ ] Candidate linkages listed: [list from section_signals]
   [ ] Relevance gate applied: kept only linkages with named sleeve effects
   [ ] Transmission paths mapped: global signal → mechanism → sleeve → portfolio effect
   [ ] Confidence language tiers assigned: ≥0.85 established / 0.70-0.84 directional / <0.70 monitor

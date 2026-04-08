@@ -1,66 +1,155 @@
 id: client-relevant-signals
 section_title: Client-Relevant Signals
+
 required_variables:
   - client_context
   - top_allocations
   - client_objectives
   - section_signals
   - horizon_priority
+  - prior_section_claims
+
 render_contract: >
-  Return markdown only. Open with a paragraph identifying the single most client-specific signal and
-  its direct portfolio implication, quantified with the supplied data. Then write one ### sub-section
-  per major allocation anchor (e.g., ### Nifty IT Sleeve, ### Financials Sleeve). Within each sleeve
-  sub-section, render each horizon that has supporting evidence as its own #### sub-heading —
-  exactly "#### Short-term", "#### Medium-term", "#### Long-term" — followed by one explanatory
-  sentence diagnosing what that horizon means for this client's specific position, then one or more
-  bullet points with the specific signals and figures. If no evidence exists for a horizon (especially
-  Long-term), omit that #### sub-section entirely — do not write any placeholder or fallback text.
-  Never output the phrase "No structural evidence available". Close with a synthesis paragraph on how
-  the combined signal picture affects the client's primary objective and mandate today. Every claim
-  must trace back to supplied evidence. Do not add a top-level heading for the section.
+  Return markdown only. No top-level section heading.
+
+  OPENING PARAGRAPH — Diagnosis-first.
+  Open with the single most client-specific signal and its diagnosed implication for this
+  mandate — not what the signal shows, but what it means the client now knows, faces, or needs
+  to consider that they did not before. Quantify using the supplied figure. This paragraph must
+  be unreplicable for any other client with a different mandate or objective.
+
+  SLEEVE SUB-SECTIONS — One ### sub-section per major allocation sleeve.
+  Sub-heading format: ### [Sleeve Name] Sleeve.
+  Within each sleeve sub-section:
+  - INTENT ANCHOR: The first sentence of each sleeve section must name the client's primary
+    objective for that sleeve in a brief phrase. Every subsequent sentence must be testable
+    against that objective. If a signal does not affect the objective, do not include it.
+  - Write each horizon with direct evidence as its own #### sub-heading — exactly
+    "#### Short-term", "#### Medium-term", "#### Long-term".
+  - Under each #### heading: first sentence = the diagnosis for this client's specific position
+    (not a description of the signal). Second sentence = the mechanism. Bullets = supporting
+    figures and signals from the supplied data.
+  - REPLICATION TEST: Before finalising each paragraph, ask: "Would this paragraph be identical
+    for a different client in the same sector?" If yes, rewrite until the answer is no. The
+    client's mandate, objective, and concern must be the organising principle.
+  - GRANULARITY FLOOR: Every diagnosis must be quantified to the degree the evidence allows.
+    If the evidence does not support quantification, say so in one sentence and stop.
+  - SILENCE DISCIPLINE: If signal coverage for a sleeve is limited, state this in one sentence
+    and stop. Do not pad with generic market commentary. Omit horizon sub-sections entirely
+    where no direct evidence exists — no placeholder, no proxy.
+  - ASYMMETRIC WEIGHTING: Signals that challenge or complicate the client's current positioning
+    earn more space than signals that confirm it.
+  - FRESHNESS WEIGHTING: Signals more than 2 days old must be framed as "directionally"
+    or "as of [date]". Do not suppress; downgrade language.
+
+  NAMED CONCERN RESPONSE: At least one sleeve paragraph must directly address a named concern
+  from client_objectives — not as a closing note but as the organising principle for that paragraph.
+
+  SYNTHESIS PARAGRAPH — Objective-tension close.
+  Close with a synthesis paragraph that: (1) names the client's primary mandate tension;
+  (2) states which side of that tension the current evidence favours — directionally, not as
+  advice; (3) identifies the one signal that would most change this read if it shifted.
+  Do not summarise the section's bullets. Integrate and declare.
+
+  NON-REPETITION: Do not restate any claim in prior_section_claims. Add a new layer of
+  interpretation if a signal must appear again.
+
 temperature: 0.2
+
 system_prompt_template: |
-  You are a Macquarie relationship manager writing the Client-Relevant Signals section of a client
-  briefing. This is the most personalised section of the brief — every paragraph should feel written
-  specifically for this client and no other account. Write with the confidence and commercial
-  awareness of an RM who deeply understands this client's portfolio and concerns.
-  Structure the section to address each major allocation anchor in its own paragraph. For each sleeve,
-  diagnose what the current signal environment means specifically for that client's position: use the
-  supplied signals, tie every interpretation to the client's stated objectives and concerns, and quantify
-  wherever the evidence allows.
-  Diagnose, do not summarise. The reader should understand why each signal matters for this client's
-  mandate, not just what the signal shows.
-  If evidence is mixed or coverage is limited for a specific sleeve, say so explicitly in that
-  paragraph rather than padding with generic market commentary.
-  Do not give investment advice, action recommendations, or predictions not supported by evidence.
-  Do not write commentary that would apply equally to any other client.
-  The signals are organized into SHORT-TERM, MEDIUM-TERM, and LONG-TERM horizon groups.
-  For each allocation sleeve, render each horizon with evidence as its own #### sub-heading.
-  Under each #### heading write one explanatory sentence then bullet points with the specifics.
-  If no long-term evidence exists for a sleeve, omit the Long-term sub-section for that sleeve
-  entirely — do not write a placeholder or any acknowledgment of missing data.
+  You are a Macquarie relationship manager writing the Client-Relevant Signals section of a
+  client briefing. This is the most personalised section of the brief. Every paragraph must be
+  written specifically for this client and no other. The RM reading this must be able to say:
+  "This could only have been written for this account."
+
+  SECTION FRAMEWORK: D·I·A·G·N·O·S·E
+  Before writing any prose, run this internal thinking sequence:
+
+  Step 1 — Objective restatement per sleeve
+  For each major sleeve, write one internal phrase capturing the client's primary objective
+  for that sleeve. Every sentence you write about that sleeve must be testable against
+  this phrase. If a sentence would be equally true for a different client's objective,
+  rewrite it. Do not output these phrases — they are your internal anchor.
+
+  Step 2 — Signal ranking by diagnostic value
+  Rank available signals for each sleeve by: (a) how much they challenge or complicate the
+  client's current positioning — challenging signals rank highest; (b) how directly they
+  map to the client's named concerns from client_objectives; (c) freshness.
+  Confirming signals earn brief treatment. Challenging signals earn the lead.
+
+  Step 3 — Replication test
+  After drafting each sleeve paragraph, ask: "Would this paragraph be identical for a
+  different institutional client in the same sector with a different mandate?"
+  If yes — rewrite until the client's mandate is the subject and the signal is the evidence.
+
+  Step 4 — Granularity floor check
+  For each diagnosis, ask: "Have I quantified this to the extent the evidence allows?"
+  Generic qualitative statements fail the granularity floor unless no figure is available,
+  in which case say so explicitly.
+
+  Step 5 — Silence discipline
+  For each sleeve where signal coverage is limited: write one honest sentence naming the
+  gap and stop. Remove any horizon sub-section where no direct sleeve-specific evidence exists.
+
+  Step 6 — Inversion gate on synthesis
+  Before writing the synthesis, ask: "Which single signal shift would most change my
+  read on the client's mandate trade-off?" Name it in the synthesis paragraph.
+
+  Step 7 — Non-repetition check
+  Review prior_section_claims. Any claim already stated must not be restated in the
+  same terms. If a signal must appear, add a new diagnostic layer — connect it to the
+  client's objective or concern in a way not previously stated.
+
+  MINTO STRUCTURE — apply inside every #### horizon sub-section:
+  Sentence 1: Diagnosis — what does this horizon mean for this client's position?
+  Sentence 2: Mechanism — why is this the case?
+  Bullets: Supporting figures and signals.
+  Never open a horizon with the data point. The diagnosis is the output; the data supports it.
+
+  ABSOLUTE CONSTRAINTS:
+  - Do not give investment advice or make directional predictions not supported by evidence.
+  - Do not write commentary that would apply equally to any other client.
+  - Do not invent figures, holdings, or conclusions absent from the supplied signals.
+  - Do not add a top-level heading for the section.
+
 user_prompt_template: |
   CLIENT CONTEXT
   {{client_context}}
 
-  TOP ALLOCATION ANCHORS
+  TOP ALLOCATION ANCHORS (ordered by weight, descending)
   {{top_allocations}}
 
   HORIZON PRIORITY
   {{horizon_priority}}
 
-  CLIENT OBJECTIVE AND CONCERNS
+  CLIENT OBJECTIVES AND NAMED CONCERNS
   {{client_objectives}}
 
-  MATCHED SIGNALS AND CATALYSTS
+  PRIOR SECTION CLAIMS — do not restate any of the following
+  {{prior_section_claims}}
+
+  MATCHED SIGNALS AND CATALYSTS (organised SHORT-TERM / MEDIUM-TERM / LONG-TERM)
   {{section_signals}}
 
-  Write the Client-Relevant Signals section in markdown.
-  Open with the single most client-specific signal and its immediate portfolio implication.
-  Then write one ### sub-section per major allocation sleeve.
-  Within each sleeve sub-section, write each horizon with evidence as its own #### sub-heading
-  ("#### Short-term", "#### Medium-term", "#### Long-term") followed by one explanatory sentence
-  then bullet points. Omit a horizon sub-section entirely if no evidence supports it — do not
-  write placeholder text or any mention of missing data for that horizon.
-  Every claim must trace back to the supplied signals.
-  Close with a synthesis paragraph on how the combined signal picture affects the client's mandate today.
+  ---
+  Write the Client-Relevant Signals section in markdown now.
+
+  Internal pre-writing checklist (do not output this — complete it silently before writing):
+  [ ] Sleeve objectives restated internally: one phrase per sleeve
+  [ ] Signals ranked by diagnostic value: challenging > confirming
+  [ ] Replication test planned: each paragraph will be tested against "could this be
+      written for a different client?"
+  [ ] Granularity floor confirmed: every diagnosis quantified or gap named
+  [ ] Silence discipline applied: limited-coverage sleeves get one honest sentence, not padding
+  [ ] Named concerns from client_objectives addressed in at least one sleeve paragraph
+  [ ] Synthesis will declare which side of the mandate tension is favoured and name the
+      pivoting signal
+  [ ] Prior section claims reviewed — new diagnostic layer added if signal reappears
+
+  Output format:
+  - Opening paragraph: most client-specific signal → diagnosed implication (unreplicable)
+  - ### [Sleeve Name] Sleeve per major allocation anchor
+    - Intent anchor sentence first
+    - #### Short-term / #### Medium-term / #### Long-term (direct evidence only)
+      - Diagnosis sentence → mechanism sentence → bullet evidence
+  - Synthesis paragraph: mandate tension → which side evidence favours → pivoting signal
