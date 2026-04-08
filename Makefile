@@ -1,4 +1,4 @@
-SHELL := /bin/zsh
+SHELL := /usr/bin/env bash
 
 .PHONY: web api dev install install-web install-service \
 	service refresh bootstrap bootstrap-personas bootstrap-customers bootstrap-correlations bootstrap-history

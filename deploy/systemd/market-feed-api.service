@@ -1,0 +1,16 @@
+[Unit]
+Description=Market Feed Intelligence API
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/market-feed-intelligence
+ExecStart=/home/ubuntu/market-feed-intelligence/scripts/run-api.sh
+Restart=always
+RestartSec=5
+Environment=BACKEND_HOST=127.0.0.1
+Environment=BACKEND_PORT=8000
+
+[Install]
+WantedBy=multi-user.target

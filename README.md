@@ -59,6 +59,22 @@ Start Postgres separately before running the service.
 
 ## Run
 
+### One-command PoC run
+
+```bash
+./run.sh
+```
+
+This starts:
+- the Python API on `127.0.0.1:8000`
+- the Next.js app on `0.0.0.0:3000`
+
+Optional first-run bootstrap:
+
+```bash
+BOOTSTRAP=1 ./run.sh
+```
+
 ### Start the Python service
 
 ```bash
@@ -79,6 +95,25 @@ npm run dev
 The web app expects:
 - the Python service at `SERVICE_BASE_URL`
 - an OpenAI-compatible provider configuration in `apps/web/.env.local`
+
+## VM deployment helpers
+
+Repository-provided deployment assets:
+- `run.sh`
+- `scripts/run-api.sh`
+- `scripts/run-web.sh`
+- `scripts/setup-vm.sh`
+- `deploy/nginx/market-feed.conf`
+- `deploy/systemd/market-feed-api.service`
+- `deploy/systemd/market-feed-web.service`
+
+On the VM:
+
+```bash
+./scripts/setup-vm.sh
+sudo systemctl start market-feed-api.service
+sudo systemctl start market-feed-web.service
+```
 
 ### Refresh the shared cache
 

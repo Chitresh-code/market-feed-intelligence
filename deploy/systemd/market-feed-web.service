@@ -1,0 +1,17 @@
+[Unit]
+Description=Market Feed Intelligence Web
+After=network.target market-feed-api.service
+Requires=market-feed-api.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/market-feed-intelligence
+ExecStart=/home/ubuntu/market-feed-intelligence/scripts/run-web.sh
+Restart=always
+RestartSec=5
+Environment=FRONTEND_HOST=127.0.0.1
+Environment=FRONTEND_PORT=3000
+
+[Install]
+WantedBy=multi-user.target
