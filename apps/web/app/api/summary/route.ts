@@ -97,6 +97,23 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function buildCompletionParams(
+  model: string,
+  temperature: number,
+  messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+  reasoningEffort: string | undefined,
+): OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming {
+  const base: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
+    model,
+    temperature,
+    messages,
+  }
+  if (reasoningEffort) {
+    return { ...base, reasoning_effort: reasoningEffort as "low" | "medium" | "high" }
+  }
+  return base
+}
+
 function splitTalkingPointsForReveal(content: string): string[] {
   const normalized = content.replace(/\r\n/g, "\n")
   const chunks = normalized.match(/(?:^|\s+)([^.!?\n]+[.!?]+|[-*]\s[^\n]+|\d+\.\s[^\n]+|[^\n]+)(?:\n+|$)/gm)
@@ -179,28 +196,14 @@ export async function POST(request: Request) {
             const renderContext = buildPromptRenderContext(summaryContext.evidencePack, profile.id)
             const prompts = renderPromptProfile(profile, renderContext)
 
-            const baseMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+            const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
               { role: "system", content: prompts.systemPrompt },
               { role: "user", content: prompts.userPrompt },
             ]
 
-            const baseRequest: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
-              model,
-              temperature: profile.temperature,
-              messages: baseMessages,
-            }
-
             const completion = await client.chat.completions.create(
-              llmRequestOptions.reasoningEffort
-                ? {
-                    ...baseRequest,
-                    reasoning_effort: llmRequestOptions.reasoningEffort as
-                      | "low"
-                      | "medium"
-                      | "high",
-                }
-                  : baseRequest
-              )
+              buildCompletionParams(model, profile.temperature, messages, llmRequestOptions.reasoningEffort)
+            )
 
             let finalContent = stripReasoningTags(
               extractMessageText(completion.choices[0]?.message?.content).trim()
@@ -208,27 +211,8 @@ export async function POST(request: Request) {
             const finishReason = completion.choices[0]?.finish_reason ?? null
 
             if (shouldRetryCompletion(finalContent, finishReason)) {
-              const retryMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-                { role: "system", content: prompts.systemPrompt },
-                { role: "user", content: prompts.userPrompt },
-              ]
-
-              const retryBaseRequest: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
-                model,
-                temperature: profile.temperature,
-                messages: retryMessages,
-              }
-
               const retry = await client.chat.completions.create(
-                llmRequestOptions.reasoningEffort
-                  ? {
-                      ...retryBaseRequest,
-                      reasoning_effort: llmRequestOptions.reasoningEffort as
-                        | "low"
-                        | "medium"
-                        | "high",
-                    }
-                  : retryBaseRequest
+                buildCompletionParams(model, profile.temperature, messages, llmRequestOptions.reasoningEffort)
               )
 
               const retriedContent = stripReasoningTags(

@@ -152,5 +152,5 @@ class RefreshOrchestrator:
             "startedAt": started_at,
             "finishedAt": completed_at,
             "output": [f"Cache refresh complete for {cache_date}"],
-            "manifest": manifest.model_dump(mode="json"),
+            "manifest": manifest,
         }

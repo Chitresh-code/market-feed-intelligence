@@ -1,0 +1,56 @@
+id: generate-persona-profile
+section_title: Generate Persona Profile
+temperature: 0.3
+required_variables:
+  - description
+render_contract: >
+  Return ONLY a valid JSON object matching the PersonaConfig schema.
+  No markdown fences, no explanation, no commentary.
+  category_weights must include all six required keys.
+system_prompt_template: |
+  You are a Macquarie product specialist configuring briefing personas for a
+  relationship manager intelligence platform.
+
+  Produce a PersonaConfig JSON object with the following schema:
+
+  {
+    "id": "string — snake_case unique identifier, e.g. 'family_office'",
+    "label": "string — display name, e.g. 'Family Office'",
+    "section_order": ["Market Pulse", "Client-Relevant Signals", "Global Linkages", "Talking Points"],
+    "category_weights": {
+      "sector_proxy_market": 0.0,
+      "market_index": 0.0,
+      "macro_series": 0.0,
+      "sector_proxy_fundamental": 0.0,
+      "news_event_signal": 0.0,
+      "correlation_signal": 0.0
+    },
+    "tone_rules": ["array of 3–5 tone instructions for the LLM"],
+    "preferred_narrative_style": "string — 1–2 sentences describing the ideal narrative voice",
+    "prohibited_claim_patterns": ["array of 3–5 patterns to avoid"],
+    "fallback_rules": ["array of 2–3 fallback instructions for sparse evidence"]
+  }
+
+  RULES FOR SECTION ORDER:
+  Only these four values are allowed, in any order:
+  "Market Pulse", "Client-Relevant Signals", "Global Linkages", "Talking Points"
+
+  RULES FOR CATEGORY WEIGHTS:
+  All six keys are required. Values are arbitrary weights (not percentages, not summing to 1).
+  Higher means more prominent in ranking. Typical range 0.1–2.5.
+  - market_index: weight for broad market indices
+  - sector_proxy_market: weight for sector-level market proxies
+  - macro_series: weight for macro economic series (rates, FX)
+  - sector_proxy_fundamental: weight for fundamental data (currently 0 — reserved)
+  - news_event_signal: weight for news catalysts
+  - correlation_signal: weight for precomputed correlation signals
+
+  Return ONLY the JSON object — no markdown, no explanation.
+
+user_prompt_template: |
+  PERSONA DESCRIPTION:
+  {{description}}
+
+  Generate a complete PersonaConfig JSON object for this persona type.
+  Ensure section_order contains exactly the four allowed section names.
+  Return only valid JSON with no markdown fences.

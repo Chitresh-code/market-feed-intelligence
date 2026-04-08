@@ -119,12 +119,16 @@ def parse_args() -> argparse.Namespace:
         help="Cache date in YYYY-MM-DD format.",
     )
     return parser.parse_args()
+
+
 def requested_date(value: str) -> date:
     return date.fromisoformat(value)
 
 
 def parse_iso_to_date(value: str) -> date:
     return datetime.fromisoformat(value).date()
+
+
 def compute_freshness(
     dataset_name: str,
     records: list[dict[str, Any]],
@@ -544,6 +548,7 @@ def build_news_signals(
             continue
         if relevance < 0.62:
             continue
+        confidence = 0.64 if source_name == "reuters" and hits == 0 else 0.72
         signal = NormalizedSignal(
             signal_id=f"{customer['id']}::news::{record['article_id']}",
             category="news_event_signal",
@@ -553,13 +558,12 @@ def build_news_signals(
             as_of=record["published_at"],
             customer_relevance=relevance,
             persona_weight=weight,
-            confidence=0.64 if source_name == "reuters" and hits == 0 else 0.72,
+            confidence=confidence,
             narrative=(
                 f"{record['source_name']} published a potentially relevant catalyst: {record['headline']}."
             ),
             time_horizon=classify_signal_horizon("news_event_signal"),
         )
-        confidence = 0.64 if source_name == "reuters" and hits == 0 else 0.72
         signals.append((relevance * weight * confidence, signal))
 
     signals.sort(key=lambda item: item[0], reverse=True)
@@ -622,6 +626,8 @@ def normalize_customer_bundle(
         generated_at=generated_at,
         signals=[signal for _, signal in ranked_signals],
     )
+
+
 def main() -> None:
     from services.refresh_orchestrator import RefreshOrchestrator
 

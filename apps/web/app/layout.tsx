@@ -7,10 +7,14 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
-  title: "Macquarie Sales Intelligence Agent",
+  title: "Market Feed Intelligence",
   description:
     "Personalized client briefing workspace powered by cached market signals, macro context, and live summary generation.",
-  applicationName: "Macquarie Sales Intelligence Agent",
+  applicationName: "Market Feed Intelligence",
+  icons: {
+    icon: "https://www.qtsolv.com/wp-content/themes/qtsolvtheme/assets/images/favicon.ico",
+    shortcut: "https://www.qtsolv.com/wp-content/themes/qtsolvtheme/assets/images/favicon.ico",
+  },
 }
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" })

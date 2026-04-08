@@ -19,12 +19,18 @@ function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`
 }
 
-function getPersonaProfile(personaId: string): string {
-  if (personaId === "hni_equity") {
-    return "High Net Worth Individual focused on portfolio performance, sector rotation, and market timing. Expects the RM to know holdings intimately and surface relevant signals before they have seen them independently."
-  }
+const PERSONA_PROFILES: Record<string, string> = {
+  hni_equity:
+    "High Net Worth Individual focused on portfolio performance, sector rotation, and market timing. Expects the RM to know holdings intimately and surface relevant signals before they have seen them independently.",
+  inst_fund:
+    "Institutional fund reader focused on macro regime, asset allocation drift, mandate context, and cross-asset correlations. Less interested in individual stock moves than regime and flow dynamics.",
+}
 
-  return "Institutional fund reader focused on macro regime, asset allocation drift, mandate context, and cross-asset correlations. Less interested in individual stock moves than regime and flow dynamics."
+const DEFAULT_PERSONA_PROFILE =
+  "Institutional fund reader focused on macro regime, asset allocation drift, mandate context, and cross-asset correlations. Less interested in individual stock moves than regime and flow dynamics."
+
+function getPersonaProfile(personaId: string): string {
+  return PERSONA_PROFILES[personaId] ?? DEFAULT_PERSONA_PROFILE
 }
 
 export default async function Page({

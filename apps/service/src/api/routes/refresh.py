@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
-from api.dependencies import get_db
+from api.dependencies import DbDep
+from domain.models import CacheManifest
 from services.refresh_orchestrator import RefreshOrchestrator
 
 
-router = APIRouter()
+router = APIRouter(tags=["Refresh"])
 
 
 class RefreshRequest(BaseModel):
@@ -16,10 +16,21 @@ class RefreshRequest(BaseModel):
     lookback_days: int = 5
 
 
-@router.post("/refresh")
-def refresh_cache(payload: RefreshRequest, db: Session = Depends(get_db)) -> dict:
-    service = RefreshOrchestrator(db)
+class RefreshResponse(BaseModel):
+    status: str
+    date: str
+    startedAt: str | None
+    finishedAt: str | None
+    output: list[str]
+    manifest: CacheManifest
+
+
+@router.post("/refresh", response_model=RefreshResponse)
+def refresh_cache(payload: RefreshRequest, db: DbDep) -> RefreshResponse:
     try:
-        return service.refresh_cache(payload.date, payload.lookback_days)
+        result = RefreshOrchestrator(db).refresh_cache(payload.date, payload.lookback_days)
+        return RefreshResponse(**result)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        ) from exc

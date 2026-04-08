@@ -322,21 +322,7 @@ export function BriefingPanel({
       ...createEmptyRun(),
       status: "generating",
     })
-    setSections(
-      Object.fromEntries(
-        SUMMARY_SECTION_DEFINITIONS.map((section) => [
-          section.id,
-          {
-            sectionId: section.id,
-            title: section.title,
-            status: "idle",
-            content: "",
-            error: null,
-            timing: createEmptyTiming(),
-          },
-        ])
-      ) as Record<SummarySectionId, SummarySectionState>
-    )
+    setSections(createEmptySections())
     setSummaryError(null)
   }
 
