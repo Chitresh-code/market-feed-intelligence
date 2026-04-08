@@ -41,6 +41,51 @@ export default async function Page({
   const resolved = searchParams ? await searchParams : undefined
   const view = await getDashboardView(resolved?.customer)
 
+  if (!view.selectedCustomer || !view.persona || !view.cacheDate || !view.bundle) {
+    return (
+      <SidebarProvider
+        style={
+          {
+            "--sidebar-width": "calc(var(--spacing) * 72)",
+            "--header-height": "calc(var(--spacing) * 12)",
+          } as React.CSSProperties
+        }
+      >
+        <AppSidebar variant="inset" customers={view.customers} />
+        <SidebarInset>
+          <SiteHeader
+            customerName="No clients available"
+            persona="Client registry empty"
+            date={view.date}
+          />
+          <div className="flex flex-1 flex-col">
+            <div className="@container/main flex flex-1 flex-col gap-2">
+              <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+                <div className="px-4 lg:px-6">
+                  <Card size="sm" className="min-w-0">
+                    <CardContent className="space-y-3 pt-6 text-sm leading-6 text-muted-foreground">
+                      <h2 className="text-xl font-semibold leading-8 text-foreground">
+                        No client data loaded
+                      </h2>
+                      <p>
+                        The dashboard cannot render until the service has seeded customers and
+                        refresh data for at least one cache date.
+                      </p>
+                      <p>
+                        Run <code>make bootstrap</code> and then <code>make refresh DATE=YYYY-MM-DD</code>{" "}
+                        on the VM from the repository root.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    )
+  }
+
   return (
     <SidebarProvider
       style={

@@ -647,6 +647,25 @@ export async function getSummaryContext(customerId: string, requestedDate?: stri
 
 export async function getDashboardView(selectedCustomerId?: string) {
   const customers = await readCustomers()
+  if (customers.length === 0) {
+    return {
+      date: getPocBriefingDate(),
+      cacheDate: null,
+      customers: [],
+      selectedCustomer: null,
+      persona: null,
+      persistedGeneration: null,
+      manifest: null,
+      bundle: null,
+      marketSignals: [],
+      sideSignals: [],
+      correlationSignals: [],
+      evidencePack: null,
+      freshnessCards: [],
+      refreshSummary: null,
+    }
+  }
+
   const selectedCustomer =
     customers.find((customer) => customer.id === selectedCustomerId) ?? customers[0]
   const summaryContext = await getSummaryContext(selectedCustomer.id)
