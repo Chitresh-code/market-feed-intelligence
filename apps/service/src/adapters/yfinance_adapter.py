@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 
 import pandas as pd
 import yfinance as yf
@@ -48,6 +49,44 @@ def _coerce_number(frame: pd.DataFrame, row_index: int, column: str) -> float | 
 class YFinanceMarketAdapter:
     source = "yfinance"
 
+    def _download_history(
+        self,
+        spec: MarketTickerSpec,
+        window: FetchWindow,
+    ) -> pd.DataFrame | None:
+        attempts = 3
+
+        for attempt in range(1, attempts + 1):
+            try:
+                history = yf.download(
+                    spec.ticker,
+                    period=f"{max(window.lookback_days, 5) + 5}d",
+                    interval="1d",
+                    auto_adjust=False,
+                    progress=False,
+                    threads=False,
+                    timeout=30,
+                )
+            except Exception as exc:
+                if attempt == attempts:
+                    raise AdapterError(
+                        f"yfinance request failed for {spec.ticker}: {exc}"
+                    ) from exc
+                time.sleep(1.5 * attempt)
+                continue
+
+            if history is None:
+                if attempt == attempts:
+                    raise AdapterError(
+                        f"yfinance returned no response for {spec.ticker}"
+                    )
+                time.sleep(1.5 * attempt)
+                continue
+
+            return history
+
+        return None
+
     def fetch(
         self,
         specs: list[MarketTickerSpec],
@@ -57,15 +96,15 @@ class YFinanceMarketAdapter:
         notes: list[str] = []
 
         for spec in specs:
-            history = yf.download(
-                spec.ticker,
-                period=f"{max(window.lookback_days, 5) + 5}d",
-                interval="1d",
-                auto_adjust=False,
-                progress=False,
-                threads=False,
-            )
+            try:
+                history = self._download_history(spec, window)
+            except AdapterError as exc:
+                notes.append(f"Skipped ticker {spec.ticker}: {exc}")
+                continue
 
+            if history is None:
+                notes.append(f"Skipped ticker {spec.ticker}: yfinance returned no response")
+                continue
             if history.empty:
                 notes.append(f"Skipped ticker {spec.ticker}: yfinance returned no rows")
                 continue
