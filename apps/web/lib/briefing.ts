@@ -30,7 +30,6 @@ type LlmRequestOptions = {
 const repoRoot = path.join(process.cwd(), "..", "..")
 const promptsRoot = path.join(repoRoot, "apps", "web", "prompts")
 // CALIBRATE spine — nine quality gates that apply to every section.
-// One-liners + self-tests extracted from prompts/v2/frameworks.yaml.
 // Full definitions are omitted to keep token cost low; section-specific
 // system prompts carry the deeper elaboration where needed.
 const calibrateSpine = `
