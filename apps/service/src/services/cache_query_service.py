@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from domain.models import CacheManifest, CorrelationBundle, NormalizedSignalBundle
+from domain.models import (
+    CacheManifest,
+    CorrelationBundle,
+    NormalizedSignalBundle,
+    RawMacroRecord,
+    RawMarketRecord,
+    RawNewsRecord,
+)
 from repositories.cache_repository import CacheRepository
 
 
@@ -37,3 +44,21 @@ class CacheQueryService:
         if not run:
             raise ValueError(f"No successful cache run found for {cache_date}.")
         return self.repository.build_correlation_bundle(run)
+
+    def get_raw_market(self, cache_date: str) -> list[RawMarketRecord]:
+        run = self.repository.fetch_successful_run_for_date(cache_date)
+        if not run:
+            raise ValueError(f"No successful cache run found for {cache_date}.")
+        return self.repository.build_raw_market_records(run)
+
+    def get_raw_macro(self, cache_date: str) -> list[RawMacroRecord]:
+        run = self.repository.fetch_successful_run_for_date(cache_date)
+        if not run:
+            raise ValueError(f"No successful cache run found for {cache_date}.")
+        return self.repository.build_raw_macro_records(run)
+
+    def get_raw_news(self, cache_date: str) -> list[RawNewsRecord]:
+        run = self.repository.fetch_successful_run_for_date(cache_date)
+        if not run:
+            raise ValueError(f"No successful cache run found for {cache_date}.")
+        return self.repository.build_raw_news_records(run)

@@ -16,15 +16,14 @@ system_prompt_template: |
   Produce a CustomerProfile JSON object with the following schema:
 
   {
-    "id": "string — unique snake_case identifier, e.g. 'rahul_sharma_hni'",
     "name": "string — full name",
     "persona": "hni_equity" | "inst_fund",
     "mandate": "string — concise mandate, e.g. 'Equity-led wealth growth with sector conviction'",
     "client_profile": "string — 2–3 sentence profile describing the client's background and financial posture",
-    "risk_rating": "string — one of: Conservative, Moderate, Aggressive",
-    "relationship_since": "string — year only, e.g. '2021'",
-    "last_meeting": "string — formatted date, e.g. '18 Mar 2026'",
-    "next_meeting": "string — formatted date, e.g. '15 Apr 2026'",
+    "risk_rating": "string — one of: Conservative, Moderate, Balanced, Moderate-High, High",
+    "relationship_since": "string — ISO date, e.g. '2021-04-01'",
+    "last_meeting": "string — ISO date, e.g. '2026-03-18'",
+    "next_meeting": "string — ISO date, e.g. '2026-04-15'",
     "meeting_context": "string — 1–2 sentences describing the purpose of the upcoming meeting",
     "primary_objective": "string — concise investment objective",
     "communication_style": "string — communication preference, e.g. 'Prefers concise data-driven updates; no jargon'",
@@ -47,6 +46,7 @@ system_prompt_template: |
   - Use Indian market context: NSE tickers, INR-based instruments, Nifty indices
   - persona must be exactly "hni_equity" or "inst_fund"
   - Make the profile specific and realistic, not generic placeholders
+  - Do not include an id field; the system will generate it
   - Return ONLY the JSON object — no markdown, no explanation
 
 user_prompt_template: |

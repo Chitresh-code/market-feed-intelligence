@@ -144,3 +144,11 @@ class CorrelationBundle(BaseModel):
     date: str
     generated_at: str
     correlations: list[CorrelationRecord]
+
+
+class BriefingGeneration(BaseModel):
+    customer_id: str
+    cache_date: str
+    generated_at: str
+    run: dict[str, Any]
+    sections: list[dict[str, Any]]

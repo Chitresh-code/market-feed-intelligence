@@ -24,6 +24,9 @@ from domain.models import (
     FreshnessMetadata,
     NormalizedSignal,
     NormalizedSignalBundle,
+    RawMacroRecord,
+    RawMarketRecord,
+    RawNewsRecord,
 )
 
 
@@ -315,6 +318,58 @@ class CacheRepository:
                 for record in run.correlation_records
             ],
         )
+
+    def build_raw_market_records(self, run: CacheRunRecord) -> list[RawMarketRecord]:
+        return [
+            RawMarketRecord(
+                ticker=record.ticker,
+                label=record.label,
+                category=record.category,
+                currency=record.currency,
+                open=record.open,
+                high=record.high,
+                low=record.low,
+                close=record.close,
+                volume=record.volume,
+                delta_1d_pct=record.delta_1d_pct,
+                delta_5d_pct=record.delta_5d_pct,
+                source=record.source,
+                as_of=record.as_of,
+            )
+            for record in sorted(run.raw_market_records, key=lambda row: (row.label, row.ticker))
+        ]
+
+    def build_raw_macro_records(self, run: CacheRunRecord) -> list[RawMacroRecord]:
+        return [
+            RawMacroRecord(
+                series_id=record.series_id,
+                label=record.label,
+                value=record.value,
+                delta_1d=record.delta_1d,
+                delta_90d=record.delta_90d,
+                delta_180d=record.delta_180d,
+                unit=record.unit,
+                source=record.source,
+                as_of=record.as_of,
+            )
+            for record in sorted(run.raw_macro_records, key=lambda row: (row.label, row.series_id))
+        ]
+
+    def build_raw_news_records(self, run: CacheRunRecord) -> list[RawNewsRecord]:
+        return [
+            RawNewsRecord(
+                article_id=record.article_id,
+                headline=record.headline,
+                summary=record.summary,
+                source_name=record.source_name,
+                published_at=record.published_at,
+                url=record.url,
+                categories=record.categories,
+                related_symbols=record.related_symbols,
+                source=record.source,
+            )
+            for record in sorted(run.raw_news_records, key=lambda row: row.published_at, reverse=True)
+        ]
 
     @staticmethod
     def _build_file_ref(dataset_name: str, cache_date: str, generated_at: str, record_count: int, source: str) -> CacheFileRef:

@@ -4,7 +4,14 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from api.dependencies import DbDep
-from domain.models import CacheManifest, CorrelationRecord, NormalizedSignalBundle
+from domain.models import (
+    CacheManifest,
+    CorrelationRecord,
+    NormalizedSignalBundle,
+    RawMacroRecord,
+    RawMarketRecord,
+    RawNewsRecord,
+)
 from services.cache_query_service import CacheQueryService
 
 
@@ -21,6 +28,18 @@ class LatestDateResponse(BaseModel):
 
 class CorrelationsResponse(BaseModel):
     correlations: list[CorrelationRecord]
+
+
+class RawMarketResponse(BaseModel):
+    records: list[RawMarketRecord]
+
+
+class RawMacroResponse(BaseModel):
+    records: list[RawMacroRecord]
+
+
+class RawNewsResponse(BaseModel):
+    records: list[RawNewsRecord]
 
 
 @router.get("/health")
@@ -64,3 +83,30 @@ def get_correlations(cache_date: str, db: DbDep) -> CorrelationsResponse:
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return CorrelationsResponse(correlations=bundle.correlations)
+
+
+@router.get("/raw/market/{cache_date}", response_model=RawMarketResponse)
+def get_raw_market(cache_date: str, db: DbDep) -> RawMarketResponse:
+    try:
+        records = CacheQueryService(db).get_raw_market(cache_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return RawMarketResponse(records=records)
+
+
+@router.get("/raw/macro/{cache_date}", response_model=RawMacroResponse)
+def get_raw_macro(cache_date: str, db: DbDep) -> RawMacroResponse:
+    try:
+        records = CacheQueryService(db).get_raw_macro(cache_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return RawMacroResponse(records=records)
+
+
+@router.get("/raw/news/{cache_date}", response_model=RawNewsResponse)
+def get_raw_news(cache_date: str, db: DbDep) -> RawNewsResponse:
+    try:
+        records = CacheQueryService(db).get_raw_news(cache_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return RawNewsResponse(records=records)

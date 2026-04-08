@@ -1,4 +1,4 @@
-export type PersonaId = "hni_equity" | "inst_fund"
+export type PersonaId = string
 
 export type CustomerAllocation = {
   sector: string
@@ -68,6 +68,46 @@ export type CacheFileRef = {
   generated_at: string
   source: string
   date: string
+}
+
+export type RawMarketRecord = {
+  ticker: string
+  label: string
+  category: "market_index" | "sector_proxy_market"
+  currency: string
+  open: number | null
+  high: number | null
+  low: number | null
+  close: number
+  volume: number | null
+  delta_1d_pct: number | null
+  delta_5d_pct: number | null
+  source: "yfinance"
+  as_of: string
+}
+
+export type RawMacroRecord = {
+  series_id: string
+  label: string
+  value: number
+  delta_1d: number | null
+  delta_90d: number | null
+  delta_180d: number | null
+  unit: string
+  source: "fredapi"
+  as_of: string
+}
+
+export type RawNewsRecord = {
+  article_id: string
+  headline: string
+  summary: string
+  source_name: string
+  published_at: string
+  url: string
+  categories: string[]
+  related_symbols: string[]
+  source: "finnhub"
 }
 
 export type Manifest = {
@@ -146,6 +186,14 @@ export type EvidencePack = {
     status: ManifestFreshness["status"]
     note: string
   }>
+}
+
+export type PersistedBriefingGeneration = {
+  customer_id: string
+  cache_date: string
+  generated_at: string
+  run: import("@/lib/summary-stream").SummaryRunState
+  sections: import("@/lib/summary-stream").SummarySectionState[]
 }
 
 const serviceBaseUrl = process.env.SERVICE_BASE_URL?.replace(/\/+$/, "")
@@ -281,6 +329,32 @@ export async function readCorrelations(cacheDate: string): Promise<CorrelationRe
 
 export async function readCorrelationMappings(): Promise<CorrelationMapping[]> {
   return serviceFetch<CorrelationMapping[]>("/correlation-mappings")
+}
+
+export async function readRawMarket(cacheDate: string): Promise<RawMarketRecord[]> {
+  const payload = await serviceFetch<{ records: RawMarketRecord[] }>(`/raw/market/${cacheDate}`)
+  return payload.records
+}
+
+export async function readRawMacro(cacheDate: string): Promise<RawMacroRecord[]> {
+  const payload = await serviceFetch<{ records: RawMacroRecord[] }>(`/raw/macro/${cacheDate}`)
+  return payload.records
+}
+
+export async function readRawNews(cacheDate: string): Promise<RawNewsRecord[]> {
+  const payload = await serviceFetch<{ records: RawNewsRecord[] }>(`/raw/news/${cacheDate}`)
+  return payload.records
+}
+
+export async function readPersistedGeneration(
+  cacheDate: string,
+  customerId: string
+): Promise<PersistedBriefingGeneration | null> {
+  try {
+    return await serviceFetch<PersistedBriefingGeneration>(`/generations/${cacheDate}/${customerId}`)
+  } catch {
+    return null
+  }
 }
 
 function horizonMultiplier(horizon: string, personaId: PersonaId): number {
@@ -577,6 +651,7 @@ export async function getDashboardView(selectedCustomerId?: string) {
     customers.find((customer) => customer.id === selectedCustomerId) ?? customers[0]
   const summaryContext = await getSummaryContext(selectedCustomer.id)
   const { cacheDate, customer, persona, manifest, bundle, evidencePack } = summaryContext
+  const persistedGeneration = await readPersistedGeneration(cacheDate, customer.id)
 
   const allCorrelationSignals = sortSignals(
     bundle.signals.filter((signal) => signal.category === "correlation_signal")
@@ -593,6 +668,7 @@ export async function getDashboardView(selectedCustomerId?: string) {
     })),
     selectedCustomer: customer,
     persona,
+    persistedGeneration,
     manifest,
     bundle,
     marketSignals: sortSignals(

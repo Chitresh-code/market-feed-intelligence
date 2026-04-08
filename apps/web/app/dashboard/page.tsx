@@ -209,6 +209,7 @@ export default async function Page({
                   customerId={view.selectedCustomer.id}
                   cacheDate={view.cacheDate}
                   customer={view.selectedCustomer}
+                  persistedGeneration={view.persistedGeneration}
                   displayedBriefingDate={view.date}
                   marketSignals={view.marketSignals}
                   sideSignals={view.sideSignals}

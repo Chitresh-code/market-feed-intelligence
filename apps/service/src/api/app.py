@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.routes.briefing_generations import router as briefing_generation_router
 from api.routes.cache import router as cache_router
 from api.routes.correlation_mappings import router as correlation_mapping_router
 from api.routes.customers import router as customer_router
@@ -38,6 +39,7 @@ app.add_middleware(
 )
 
 app.include_router(cache_router)
+app.include_router(briefing_generation_router)
 app.include_router(persona_router)
 app.include_router(customer_router)
 app.include_router(correlation_mapping_router)

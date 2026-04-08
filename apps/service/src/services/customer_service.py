@@ -29,7 +29,10 @@ class CustomerService:
 
     def create_customer(self, payload: CustomerProfile) -> CustomerProfile:
         self._validate_persona(payload.persona)
-        row = self.repository.upsert_customer(payload)
+        normalized = payload.model_copy(
+            update={"id": payload.id.strip() or self.repository.next_customer_id()}
+        )
+        row = self.repository.upsert_customer(normalized)
         return self.repository.to_model(row)
 
     def _validate_persona(self, persona_id: str) -> None:

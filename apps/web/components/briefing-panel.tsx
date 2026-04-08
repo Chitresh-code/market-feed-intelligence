@@ -19,8 +19,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { generateBriefingPdf } from "@/components/briefing-pdf"
-import type { Customer, Signal } from "@/lib/poc-data"
+import { buildBriefingMarkdown } from "@/lib/briefing-export"
+import type { Customer, PersistedBriefingGeneration, Signal } from "@/lib/poc-data"
 import {
   type SectionCompletedEvent,
   type SectionFailedEvent,
@@ -86,8 +86,22 @@ function createEmptyRun(): SummaryRunState {
   }
 }
 
-function formatPercent(value: number): string {
-  return `${Math.round(value * 100)}%`
+function toStoredBriefingState(
+  generation: PersistedBriefingGeneration
+): StoredBriefingState {
+  const sections = createEmptySections()
+
+  for (const section of generation.sections) {
+    sections[section.sectionId] = {
+      ...sections[section.sectionId],
+      ...section,
+    }
+  }
+
+  return {
+    run: generation.run,
+    sections,
+  }
 }
 
 function sanitizeFilenamePart(value: string): string {
@@ -101,107 +115,6 @@ function triggerDownload(blob: Blob, filename: string) {
   anchor.download = filename
   anchor.click()
   URL.revokeObjectURL(url)
-}
-
-
-function formatDuration(value: number | null): string {
-  if (value === null) {
-    return "Unavailable"
-  }
-  if (value < 1000) {
-    return `${value} ms`
-  }
-
-  return `${(value / 1000).toFixed(1)} s`
-}
-
-function buildMarkdownExport(input: {
-  customer: Customer
-  displayedBriefingDate: string
-  sections: SummarySectionState[]
-  marketSignals: Signal[]
-  sideSignals: Signal[]
-  correlationSignals: Signal[]
-  run: SummaryRunState
-}): string {
-  const allocationRows = input.customer.allocations
-    .map((allocation) => `| ${allocation.sector} | ${formatPercent(allocation.weight)} |`)
-    .join("\n")
-
-  const signalBlock = (title: string, signals: Signal[]) => {
-    if (signals.length === 0) {
-      return `## ${title}\n\n_No signals available._`
-    }
-
-    return [
-      `## ${title}`,
-      "",
-      ...signals.map(
-        (signal) =>
-          `- **${signal.label}** (${signal.source}, confidence ${formatPercent(signal.confidence)}): ${signal.narrative}`
-      ),
-    ].join("\n")
-  }
-
-  const timingBlock = [
-    "---",
-    `generated_at: ${input.run.completedAt ?? "pending"}`,
-    `total_duration: ${formatDuration(input.run.totalDurationMs)}`,
-    "section_timings:",
-    ...input.sections.map(
-      (section) =>
-        `  - ${section.title}: ${formatDuration(section.timing.totalDurationMs)}`
-    ),
-    "---",
-    "",
-  ].join("\n")
-
-  return [
-    timingBlock,
-    `# ${input.customer.name} Briefing`,
-    "",
-    `**Briefing date:** ${input.displayedBriefingDate}`,
-    `**Persona:** ${input.customer.persona}`,
-    `**Mandate:** ${input.customer.mandate}`,
-    "",
-    "## Client Profile",
-    "",
-    input.customer.client_profile,
-    "",
-    "## Allocation Profile",
-    "",
-    "| Sector | Weight |",
-    "| --- | ---: |",
-    allocationRows,
-    "",
-    "## Executive Brief",
-    "",
-    ...input.sections.flatMap((section) => [
-      `### ${section.title}`,
-      "",
-      section.content || "_No content generated._",
-      "",
-    ]),
-    signalBlock("Market Pulse Signals", input.marketSignals),
-    "",
-    signalBlock("Macro and Catalyst Signals", input.sideSignals),
-    "",
-    signalBlock("Correlation Signals", input.correlationSignals),
-    "",
-  ].join("\n")
-}
-
-async function downloadPdfExport(input: {
-  customer: Customer
-  displayedBriefingDate: string
-  sections: SummarySectionState[]
-  marketSignals: Signal[]
-  sideSignals: Signal[]
-  correlationSignals: Signal[]
-  cacheDate: string
-}) {
-  const blob = await generateBriefingPdf(input)
-  triggerDownload(blob, `${sanitizeFilenamePart(input.customer.name)}-${input.cacheDate}-briefing.pdf`)
 }
 
 function parseSseChunk(chunk: string): SummaryStreamEvent[] {
@@ -230,6 +143,7 @@ export function BriefingPanel({
   customerId,
   cacheDate,
   customer,
+  persistedGeneration,
   displayedBriefingDate,
   marketSignals,
   sideSignals,
@@ -238,6 +152,7 @@ export function BriefingPanel({
   customerId: string
   cacheDate: string
   customer: Customer
+  persistedGeneration: PersistedBriefingGeneration | null
   displayedBriefingDate: string
   marketSignals: Signal[]
   sideSignals: Signal[]
@@ -270,12 +185,18 @@ export function BriefingPanel({
     setIsGenerating(false)
     setIsStorageReady(false)
     setOpenBriefingSectionId(null)
+    const initialState = persistedGeneration
+      ? toStoredBriefingState(persistedGeneration)
+      : {
+          run: createEmptyRun(),
+          sections: createEmptySections(),
+        }
     try {
       const stored = window.sessionStorage.getItem(storageKey(customerId, cacheDate))
       if (!stored) {
-        setSummaryRun(createEmptyRun())
-        setSections(createEmptySections())
-        setSummaryError(null)
+        setSummaryRun(initialState.run)
+        setSections(initialState.sections)
+        setSummaryError(initialState.run.error ?? null)
         setIsStorageReady(true)
         return
       }
@@ -286,12 +207,12 @@ export function BriefingPanel({
       setSummaryError(parsed.run?.error ?? null)
       setIsStorageReady(true)
     } catch {
-      setSummaryRun(createEmptyRun())
-      setSections(createEmptySections())
-      setSummaryError(null)
+      setSummaryRun(initialState.run)
+      setSections(initialState.sections)
+      setSummaryError(initialState.run.error ?? null)
       setIsStorageReady(true)
     }
-  }, [customerId, cacheDate])
+  }, [cacheDate, customerId, persistedGeneration])
 
   useEffect(() => {
     if (!isStorageReady) {
@@ -495,7 +416,7 @@ export function BriefingPanel({
   }
 
   function handleDownloadMarkdown() {
-    const content = buildMarkdownExport({
+    const content = buildBriefingMarkdown({
       customer,
       displayedBriefingDate,
       sections: orderedSections,
@@ -514,6 +435,7 @@ export function BriefingPanel({
   }
 
   const hasGeneratedContent = orderedSections.some((section) => section.content.trim().length > 0)
+  const hasPersistedGeneration = persistedGeneration !== null
   const showSectionGrid =
     isGenerating || hasGeneratedContent || orderedSections.some((section) => section.error)
   const visibleCollapsibleSections = collapsibleSections.filter(
@@ -533,7 +455,11 @@ export function BriefingPanel({
             <div className="flex shrink-0 flex-wrap justify-end gap-2">
               <Button onClick={handleGenerateBrief} disabled={isGenerating} size="sm">
                 <SparklesIcon className="size-3.5" />
-                {isGenerating ? "Generating..." : "Generate Brief"}
+                {isGenerating
+                  ? "Generating..."
+                  : hasGeneratedContent || hasPersistedGeneration
+                    ? "Regenerate Brief"
+                    : "Generate Brief"}
               </Button>
               {hasMounted ? (
                 <DropdownMenu>
@@ -547,21 +473,6 @@ export function BriefingPanel({
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={handleDownloadMarkdown}>
                       Export Markdown
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        void downloadPdfExport({
-                          customer,
-                          displayedBriefingDate,
-                          sections: orderedSections,
-                          marketSignals,
-                          sideSignals,
-                          correlationSignals,
-                          cacheDate,
-                        })
-                      }
-                    >
-                      Export PDF
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -577,6 +488,11 @@ export function BriefingPanel({
           <CardDescription>
             Generate a grounded four-section brief from the cached evidence pack for the selected client.
           </CardDescription>
+          {hasGeneratedContent || hasPersistedGeneration ? (
+            <p className="text-xs text-muted-foreground">
+              Saved for cache date {cacheDate}
+            </p>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-5">

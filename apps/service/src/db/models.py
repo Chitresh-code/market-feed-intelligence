@@ -237,3 +237,14 @@ class ManifestFreshnessModel(Base):
     notes: Mapped[list[str]] = mapped_column(JSON, default=list)
 
     cache_run: Mapped[CacheRunRecord] = relationship(back_populates="freshness_records")
+
+
+class BriefingGenerationModel(Base):
+    __tablename__ = "briefing_generations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[str] = mapped_column(String(64), index=True)
+    cache_date: Mapped[str] = mapped_column(String(10), index=True)
+    generated_at: Mapped[str] = mapped_column(String(64))
+    run_state: Mapped[dict] = mapped_column(JSON, default=dict)
+    sections: Mapped[list[dict]] = mapped_column(JSON, default=list)

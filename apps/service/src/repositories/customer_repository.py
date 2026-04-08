@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -26,6 +28,18 @@ class CustomerRepository:
             .options(selectinload(CustomerModel.allocations))
         )
         return self.session.scalar(statement)
+
+    def next_customer_id(self) -> str:
+        ids = self.session.scalars(select(CustomerModel.id)).all()
+        current_max = 0
+
+        for customer_id in ids:
+            match = re.fullmatch(r"C(\d+)", customer_id)
+            if not match:
+                continue
+            current_max = max(current_max, int(match.group(1)))
+
+        return f"C{current_max + 1:03d}"
 
     def upsert_customer(self, payload: CustomerProfile) -> CustomerModel:
         row = self.get_customer(payload.id)

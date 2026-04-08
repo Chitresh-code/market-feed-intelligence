@@ -14,7 +14,6 @@ system_prompt_template: |
   Produce a PersonaConfig JSON object with the following schema:
 
   {
-    "id": "string — snake_case unique identifier, e.g. 'family_office'",
     "label": "string — display name, e.g. 'Family Office'",
     "section_order": ["Market Pulse", "Client-Relevant Signals", "Global Linkages", "Talking Points"],
     "category_weights": {
@@ -45,6 +44,7 @@ system_prompt_template: |
   - news_event_signal: weight for news catalysts
   - correlation_signal: weight for precomputed correlation signals
 
+  Do not include an id field; the system will generate it.
   Return ONLY the JSON object — no markdown, no explanation.
 
 user_prompt_template: |

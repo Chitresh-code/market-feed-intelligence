@@ -29,6 +29,14 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
   return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => vars[key] ?? "")
 }
 
+function isTemperatureUnsupportedError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  return error.message.toLowerCase().includes("temperature")
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { description?: string }
@@ -45,14 +53,28 @@ export async function POST(request: Request) {
     const systemPrompt = renderTemplate(prompt.system_prompt_template, { description })
     const userPrompt = renderTemplate(prompt.user_prompt_template, { description })
 
-    const completion = await client.chat.completions.create({
-      model,
-      temperature: prompt.temperature,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    })
+    const messages = [
+      { role: "system" as const, content: systemPrompt },
+      { role: "user" as const, content: userPrompt },
+    ]
+
+    let completion
+    try {
+      completion = await client.chat.completions.create({
+        model,
+        temperature: prompt.temperature,
+        messages,
+      })
+    } catch (error) {
+      if (!isTemperatureUnsupportedError(error)) {
+        throw error
+      }
+
+      completion = await client.chat.completions.create({
+        model,
+        messages,
+      })
+    }
 
     const rawContent = completion.choices[0]?.message?.content?.trim() ?? ""
     const jsonContent = rawContent

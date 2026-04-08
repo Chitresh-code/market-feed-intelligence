@@ -16,7 +16,7 @@ CorrelationScopeType = Literal["allocation_ticker", "persona", "customer_id"]
 
 
 class PersonaConfig(BaseModel):
-    id: str
+    id: str = ""
     label: str
     section_order: list[AllowedSection]
     category_weights: dict[str, float]
@@ -49,7 +49,7 @@ class CustomerAllocation(BaseModel):
 
 
 class CustomerProfile(BaseModel):
-    id: str
+    id: str = ""
     name: str
     persona: str
     mandate: str

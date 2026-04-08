@@ -1,14 +1,9 @@
-import {
-  ActivityIcon,
-  BrainCircuitIcon,
-  DatabaseIcon,
-  GlobeIcon,
-  LayersIcon,
-  RefreshCwIcon,
-  TrendingUpIcon,
-} from "lucide-react"
+import Link from "next/link"
+
+import { RefreshCwIcon, SquareArrowOutUpRightIcon } from "lucide-react"
 
 import { AdminPageShell } from "@/components/admin-page-shell"
+import { CacheRefreshControl } from "@/components/cache-refresh-control"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -19,62 +14,66 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { CacheRefreshControl } from "@/components/cache-refresh-control"
 import {
+  getAvailableCacheDates,
   getDefaultCacheDate,
   readCorrelationMappings,
+  readCorrelations,
+  readRawMacro,
+  readRawMarket,
+  readRawNews,
 } from "@/lib/poc-data"
 
-const PIPELINE_STEPS = [
-  {
-    icon: GlobeIcon,
-    label: "External Data Ingestion",
-    sources: ["yFinance", "FRED API", "Finnhub"],
-    detail:
-      "On each refresh, the service fetches live market prices (NSE / US via yFinance), macroeconomic series (US 10Y yield, USD/INR spot rate via FRED), and financial news headlines (general + forex categories via Finnhub). Raw records are timestamped and stored in PostgreSQL.",
-  },
-  {
-    icon: ActivityIcon,
-    label: "Signal Normalisation",
-    sources: ["Normalization Job"],
-    detail:
-      "Each raw record is scored per client using allocation-weighted relevance, persona category weights, and a confidence factor. Market signals match by ticker and sector keywords. News signals are keyword-filtered against the client's holdings, concerns, and watchlist. Macro signals receive persona-tuned relevance boosts.",
-  },
-  {
-    icon: LayersIcon,
-    label: "Correlation Resolution",
-    sources: ["Precomputed Mapping Table"],
-    detail:
-      "Correlation signals are resolved from a persisted mapping table in the database — not computed live. Each mapping defines a signal pair (e.g. USD/INR ↔ IT sector), direction, strength, and lookback. The job matches mappings against active clients by persona or allocation ticker scope.",
-  },
-  {
-    icon: BrainCircuitIcon,
-    label: "LLM Briefing Generation",
-    sources: ["Configured LLM Model"],
-    detail:
-      "The briefing layer is live: on each 'Generate Brief' request, the web app assembles a ranked evidence pack (market, macro, news, correlation signals) and dispatches four parallel LLM calls — one per briefing section. Prompts are loaded from YAML files in the repository and rendered with client-specific context.",
-  },
-  {
-    icon: DatabaseIcon,
-    label: "Storage & Serving",
-    sources: ["PostgreSQL", "FastAPI"],
-    detail:
-      "All ingested data, normalised signal bundles, and correlation records are persisted in PostgreSQL via SQLAlchemy. The FastAPI service exposes typed REST endpoints consumed by this Next.js app. No data is static — every dashboard view reflects the most recent successful cache run.",
-  },
-]
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return "Unavailable"
+  }
 
-export default async function Page() {
-  const [latestDate, mappings] = await Promise.all([
-    getDefaultCacheDate().catch(() => null),
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  const day = String(parsed.getUTCDate()).padStart(2, "0")
+  const month = parsed.toLocaleString("en-US", { month: "short", timeZone: "UTC" })
+  const year = parsed.getUTCFullYear()
+  const hours = String(parsed.getUTCHours()).padStart(2, "0")
+  const minutes = String(parsed.getUTCMinutes()).padStart(2, "0")
+
+  return `${day} ${month} ${year}, ${hours}:${minutes} UTC`
+}
+
+function formatSigned(value: number | null | undefined, suffix = ""): string {
+  if (value === null || value === undefined) {
+    return "—"
+  }
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}${suffix}`
+}
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: Promise<{ date?: string }>
+}) {
+  const resolved = searchParams ? await searchParams : undefined
+  const availableDates = await getAvailableCacheDates()
+  const fallbackDate = availableDates.length > 0 ? await getDefaultCacheDate() : null
+  const selectedDate =
+    resolved?.date && availableDates.includes(resolved.date) ? resolved.date : fallbackDate
+
+  const [rawMarket, rawMacro, rawNews, correlations, mappings] = await Promise.all([
+    selectedDate ? readRawMarket(selectedDate) : Promise.resolve([]),
+    selectedDate ? readRawMacro(selectedDate) : Promise.resolve([]),
+    selectedDate ? readRawNews(selectedDate) : Promise.resolve([]),
+    selectedDate ? readCorrelations(selectedDate) : Promise.resolve([]),
     readCorrelationMappings(),
   ])
 
   return (
     <AdminPageShell
       title="Manage Data"
-      description="Control the data pipeline, trigger cache refreshes, and inspect active correlation mappings."
+      description="Review cache history, trigger refreshes, and inspect fetched raw records from the data service."
     >
-      {/* Cache Controls */}
       <div className="px-4 lg:px-6">
         <Card>
           <CardHeader>
@@ -82,13 +81,12 @@ export default async function Page() {
               <div>
                 <CardTitle>Cache Controls</CardTitle>
                 <CardDescription>
-                  Trigger a full pipeline run to ingest live data, normalise signals, and update
-                  the signal bundles for all clients.
+                  Bootstrap and inspect multi-day history stored in Postgres.
                 </CardDescription>
               </div>
-              {latestDate ? (
+              {selectedDate ? (
                 <Badge variant="outline" className="shrink-0">
-                  Latest cache: {latestDate}
+                  Viewing {selectedDate}
                 </Badge>
               ) : null}
             </div>
@@ -97,90 +95,220 @@ export default async function Page() {
             <div className="rounded-xl border bg-muted/20 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="font-medium text-foreground">Refresh for today</p>
+                  <p className="font-medium text-foreground">Refresh selected date</p>
                   <p className="text-sm text-muted-foreground">
-                    Fetches live market, macro, and news data, recomputes all client signal
-                    bundles, and updates the database. Takes 15–45 seconds.
+                    Re-ingests market, macro, and news data, then rebuilds normalized bundles and correlation records.
                   </p>
                 </div>
-                {latestDate ? (
-                  <CacheRefreshControl cacheDate={latestDate} />
+                {selectedDate ? (
+                  <CacheRefreshControl cacheDate={selectedDate} />
                 ) : (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <RefreshCwIcon className="size-4" />
-                    No cache available — run a refresh to bootstrap.
+                    No cache history available yet.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border bg-muted/10 p-3">
-                <p className="text-xs font-medium text-muted-foreground">Data sources</p>
-                <p className="mt-1 text-sm font-medium text-foreground">yFinance · FRED · Finnhub</p>
-              </div>
-              <div className="rounded-lg border bg-muted/10 p-3">
-                <p className="text-xs font-medium text-muted-foreground">Processing</p>
-                <p className="mt-1 text-sm font-medium text-foreground">Signal normalisation · Correlation resolution</p>
-              </div>
-              <div className="rounded-lg border bg-muted/10 p-3">
-                <p className="text-xs font-medium text-muted-foreground">LLM briefing</p>
-                <p className="mt-1 text-sm font-medium text-foreground">Live · 4 parallel section calls</p>
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Available cache dates</p>
+              <div className="flex flex-wrap gap-2">
+                {availableDates.length > 0 ? (
+                  availableDates
+                    .slice()
+                    .reverse()
+                    .map((date) => (
+                      <Link
+                        key={date}
+                        href={`/admin/data?date=${date}`}
+                        className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                          date === selectedDate
+                            ? "bg-foreground text-background"
+                            : "text-foreground hover:bg-muted/60"
+                        }`}
+                      >
+                        {date}
+                      </Link>
+                    ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">Run bootstrap history to seed the database.</p>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Data Pipeline Explanation */}
       <div className="px-4 lg:px-6">
         <Card>
           <CardHeader>
-            <CardTitle>How the Data Pipeline Works</CardTitle>
-            <CardDescription>
-              End-to-end flow from live external data sources to the LLM-generated client briefing.
-            </CardDescription>
+            <CardTitle>Raw Market Records</CardTitle>
+            <CardDescription>Fetched market proxies stored for the selected cache date.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-0">
-              {PIPELINE_STEPS.map((step, index) => {
-                const Icon = step.icon
-                return (
-                  <div key={step.label} className="relative flex gap-4">
-                    {/* Connector line */}
-                    {index < PIPELINE_STEPS.length - 1 ? (
-                      <div className="absolute left-5 top-10 h-full w-px bg-border" />
-                    ) : null}
-                    <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full border bg-background shadow-sm">
-                      <Icon className="size-4 text-muted-foreground" />
-                    </div>
-                    <div className="pb-8 pt-1.5 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-foreground">{step.label}</p>
-                        {step.sources.map((source) => (
-                          <Badge key={source} variant="secondary" className="text-xs">
-                            {source}
-                          </Badge>
-                        ))}
-                      </div>
-                      <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{step.detail}</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Label</TableHead>
+                  <TableHead>Ticker</TableHead>
+                  <TableHead>Close</TableHead>
+                  <TableHead>1D</TableHead>
+                  <TableHead>5D</TableHead>
+                  <TableHead>As of</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rawMarket.map((record) => (
+                  <TableRow key={`${record.ticker}:${record.as_of}`}>
+                    <TableCell className="font-medium">{record.label}</TableCell>
+                    <TableCell>{record.ticker}</TableCell>
+                    <TableCell>{record.close.toFixed(2)}</TableCell>
+                    <TableCell>{formatSigned(record.delta_1d_pct, "%")}</TableCell>
+                    <TableCell>{formatSigned(record.delta_5d_pct, "%")}</TableCell>
+                    <TableCell>{formatDateTime(record.as_of)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>
 
-      {/* Correlation Mappings */}
+      <div className="px-4 lg:px-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Raw Macro Records</CardTitle>
+            <CardDescription>Fetched macro series stored for the selected cache date.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Label</TableHead>
+                  <TableHead>Series</TableHead>
+                  <TableHead>Value</TableHead>
+                  <TableHead>1D</TableHead>
+                  <TableHead>90D</TableHead>
+                  <TableHead>180D</TableHead>
+                  <TableHead>As of</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rawMacro.map((record) => (
+                  <TableRow key={`${record.series_id}:${record.as_of}`}>
+                    <TableCell className="font-medium">{record.label}</TableCell>
+                    <TableCell>{record.series_id}</TableCell>
+                    <TableCell>
+                      {record.value.toFixed(2)} {record.unit}
+                    </TableCell>
+                    <TableCell>{formatSigned(record.delta_1d)}</TableCell>
+                    <TableCell>{formatSigned(record.delta_90d)}</TableCell>
+                    <TableCell>{formatSigned(record.delta_180d)}</TableCell>
+                    <TableCell>{formatDateTime(record.as_of)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="px-4 lg:px-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Raw News Records</CardTitle>
+            <CardDescription>Fetched news headlines stored for the selected cache date.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Published</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Headline</TableHead>
+                  <TableHead>Categories</TableHead>
+                  <TableHead>Link</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rawNews.map((record) => (
+                  <TableRow key={record.article_id}>
+                    <TableCell>{formatDateTime(record.published_at)}</TableCell>
+                    <TableCell>{record.source_name}</TableCell>
+                    <TableCell className="max-w-[32rem]">
+                      <p className="line-clamp-2">{record.headline}</p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        {record.categories.map((category) => (
+                          <Badge key={`${record.article_id}:${category}`} variant="secondary">
+                            {category}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <a
+                        href={record.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                      >
+                        Open
+                        <SquareArrowOutUpRightIcon className="size-3.5" />
+                      </a>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="px-4 lg:px-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Correlation Records</CardTitle>
+            <CardDescription>Resolved client-facing correlations for the selected cache date.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Label</TableHead>
+                  <TableHead>Pair</TableHead>
+                  <TableHead>R</TableHead>
+                  <TableHead>Strength</TableHead>
+                  <TableHead>Lookback</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {correlations.map((record) => (
+                  <TableRow key={`${record.customer_id}:${record.label}:${record.lookback_days}`}>
+                    <TableCell>{record.customer_id}</TableCell>
+                    <TableCell className="font-medium">{record.label}</TableCell>
+                    <TableCell>
+                      {record.source_signal} → {record.target_signal}
+                    </TableCell>
+                    <TableCell>{record.r_value.toFixed(2)}</TableCell>
+                    <TableCell>{record.strength}</TableCell>
+                    <TableCell>{record.lookback_days}d</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="px-4 lg:px-6">
         <Card>
           <CardHeader>
             <CardTitle>Correlation Mappings</CardTitle>
-            <CardDescription>
-              Active signal-pair correlation rules used during the normalisation step.
-            </CardDescription>
+            <CardDescription>Active mapping rules used to produce correlation records.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -205,7 +333,7 @@ export default async function Page() {
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell>
                       {mapping.scope_type} · {mapping.scope_value}
                     </TableCell>
                     <TableCell>{mapping.direction}</TableCell>

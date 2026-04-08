@@ -2,9 +2,9 @@
 
 import { useState } from "react"
 
-import { PencilIcon, PlusIcon, SparklesIcon } from "lucide-react"
+import { PencilIcon, PlusIcon, SparklesIcon, Trash2Icon } from "lucide-react"
 
-import { createPersona, updatePersona } from "@/app/admin/personas/actions"
+import { createPersona, type PersonaDraft, updatePersona } from "@/app/admin/personas/actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -28,7 +28,6 @@ import { Textarea } from "@/components/ui/textarea"
 import type { Persona } from "@/lib/poc-data"
 
 type FormState = {
-  id: string
   label: string
   preferred_narrative_style: string
   // category weights — all stored as strings for input binding
@@ -39,10 +38,10 @@ type FormState = {
   w_news_event_signal: string
   w_correlation_signal: string
   // multi-line / comma lists stored as strings
-  section_order: string
-  tone_rules: string
-  prohibited_claim_patterns: string
-  fallback_rules: string
+  section_order: Array<{ _key: string; value: string }>
+  tone_rules: Array<{ _key: string; value: string }>
+  prohibited_claim_patterns: Array<{ _key: string; value: string }>
+  fallback_rules: Array<{ _key: string; value: string }>
 }
 
 type SheetMode = "add" | "edit" | "generate"
@@ -58,9 +57,20 @@ const CATEGORY_WEIGHT_KEYS = [
 
 const DEFAULT_SECTION_ORDER = ["Market Pulse", "Client-Relevant Signals", "Global Linkages", "Talking Points"]
 
+let _rowKey = 0
+function newRowKey() {
+  _rowKey += 1
+  return String(_rowKey)
+}
+
+function toRows(values: string[]): Array<{ _key: string; value: string }> {
+  return values.length > 0
+    ? values.map((value) => ({ _key: newRowKey(), value }))
+    : [{ _key: newRowKey(), value: "" }]
+}
+
 function emptyForm(): FormState {
   return {
-    id: "",
     label: "",
     preferred_narrative_style: "",
     w_sector_proxy_market: "1.5",
@@ -69,17 +79,16 @@ function emptyForm(): FormState {
     w_sector_proxy_fundamental: "0.0",
     w_news_event_signal: "1.2",
     w_correlation_signal: "1.0",
-    section_order: DEFAULT_SECTION_ORDER.join("\n"),
-    tone_rules: "",
-    prohibited_claim_patterns: "",
-    fallback_rules: "",
+    section_order: toRows(DEFAULT_SECTION_ORDER),
+    tone_rules: toRows([""]),
+    prohibited_claim_patterns: toRows([""]),
+    fallback_rules: toRows([""]),
   }
 }
 
 function fromPersona(p: Persona): FormState {
   const w = p.category_weights
   return {
-    id: p.id,
     label: p.label,
     preferred_narrative_style: p.preferred_narrative_style,
     w_sector_proxy_market: String(w.sector_proxy_market ?? "1.5"),
@@ -88,16 +97,15 @@ function fromPersona(p: Persona): FormState {
     w_sector_proxy_fundamental: String(w.sector_proxy_fundamental ?? "0.0"),
     w_news_event_signal: String(w.news_event_signal ?? "1.2"),
     w_correlation_signal: String(w.correlation_signal ?? "1.0"),
-    section_order: p.section_order.join("\n"),
-    tone_rules: p.tone_rules.join("\n"),
-    prohibited_claim_patterns: p.prohibited_claim_patterns.join("\n"),
-    fallback_rules: p.fallback_rules.join("\n"),
+    section_order: toRows(p.section_order),
+    tone_rules: toRows(p.tone_rules),
+    prohibited_claim_patterns: toRows(p.prohibited_claim_patterns),
+    fallback_rules: toRows(p.fallback_rules),
   }
 }
 
-function toPersona(f: FormState): Persona {
+function buildPersonaPayload(f: FormState): PersonaDraft {
   return {
-    id: f.id.trim() as Persona["id"],
     label: f.label.trim(),
     preferred_narrative_style: f.preferred_narrative_style.trim(),
     category_weights: {
@@ -108,11 +116,51 @@ function toPersona(f: FormState): Persona {
       news_event_signal: parseFloat(f.w_news_event_signal) || 0,
       correlation_signal: parseFloat(f.w_correlation_signal) || 0,
     },
-    section_order: f.section_order.split("\n").map((s) => s.trim()).filter(Boolean),
-    tone_rules: f.tone_rules.split("\n").map((s) => s.trim()).filter(Boolean),
-    prohibited_claim_patterns: f.prohibited_claim_patterns.split("\n").map((s) => s.trim()).filter(Boolean),
-    fallback_rules: f.fallback_rules.split("\n").map((s) => s.trim()).filter(Boolean),
+    section_order: f.section_order.map((row) => row.value.trim()).filter(Boolean),
+    tone_rules: f.tone_rules.map((row) => row.value.trim()).filter(Boolean),
+    prohibited_claim_patterns: f.prohibited_claim_patterns.map((row) => row.value.trim()).filter(Boolean),
+    fallback_rules: f.fallback_rules.map((row) => row.value.trim()).filter(Boolean),
   }
+}
+
+function isFormValid(form: FormState): boolean {
+  if (!form.label.trim() || !form.preferred_narrative_style.trim()) {
+    return false
+  }
+
+  const requiredWeights = [
+    form.w_sector_proxy_market,
+    form.w_market_index,
+    form.w_macro_series,
+    form.w_sector_proxy_fundamental,
+    form.w_news_event_signal,
+    form.w_correlation_signal,
+  ]
+  if (requiredWeights.some((value) => value.trim().length === 0 || Number.isNaN(Number(value)))) {
+    return false
+  }
+
+  const sectionOrder = form.section_order.map((row) => row.value.trim()).filter(Boolean)
+  const allowed = new Set(DEFAULT_SECTION_ORDER)
+  if (
+    sectionOrder.length !== DEFAULT_SECTION_ORDER.length ||
+    sectionOrder.some((value) => !allowed.has(value)) ||
+    new Set(sectionOrder).size !== DEFAULT_SECTION_ORDER.length
+  ) {
+    return false
+  }
+
+  if (!form.tone_rules.some((row) => row.value.trim())) {
+    return false
+  }
+  if (!form.prohibited_claim_patterns.some((row) => row.value.trim())) {
+    return false
+  }
+  if (!form.fallback_rules.some((row) => row.value.trim())) {
+    return false
+  }
+
+  return true
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
@@ -155,35 +203,53 @@ function PersonaFormFields({
   form: FormState
   onChange: (updates: Partial<FormState>) => void
 }) {
+  function updateListField(
+    field: "section_order" | "tone_rules" | "prohibited_claim_patterns" | "fallback_rules",
+    index: number,
+    value: string
+  ) {
+    onChange({
+      [field]: form[field].map((row, rowIndex) =>
+        rowIndex === index ? { ...row, value } : row
+      ),
+    } as Partial<FormState>)
+  }
+
+  function addListField(
+    field: "section_order" | "tone_rules" | "prohibited_claim_patterns" | "fallback_rules",
+    defaultValue = ""
+  ) {
+    onChange({
+      [field]: [...form[field], { _key: newRowKey(), value: defaultValue }],
+    } as Partial<FormState>)
+  }
+
+  function removeListField(
+    field: "section_order" | "tone_rules" | "prohibited_claim_patterns" | "fallback_rules",
+    index: number
+  ) {
+    onChange({
+      [field]: form[field].filter((_, rowIndex) => rowIndex !== index),
+    } as Partial<FormState>)
+  }
+
   return (
     <div className="space-y-8">
-      {/* Identity */}
       <div className="space-y-4">
         <SectionHeading>Identity</SectionHeading>
-        <div className="grid grid-cols-2 gap-4">
-          <Field id="pf-id" label="Persona ID" required>
-            <Input
-              id="pf-id"
-              value={form.id}
-              onChange={(e) => onChange({ id: e.target.value })}
-              placeholder="e.g. hni_equity"
-            />
-          </Field>
-          <Field id="pf-label" label="Display Label" required>
-            <Input
-              id="pf-label"
-              value={form.label}
-              onChange={(e) => onChange({ label: e.target.value })}
-              placeholder="e.g. HNI Equity Client"
-            />
-          </Field>
-        </div>
+        <Field id="pf-label" label="Display Label" required>
+          <Input
+            id="pf-label"
+            value={form.label}
+            onChange={(e) => onChange({ label: e.target.value })}
+            placeholder="e.g. HNI Equity Client"
+          />
+        </Field>
       </div>
 
-      {/* Narrative */}
       <div className="space-y-4">
         <SectionHeading>Narrative</SectionHeading>
-        <Field id="pf-style" label="Preferred Narrative Style">
+        <Field id="pf-style" label="Preferred Narrative Style" required>
           <Textarea
             id="pf-style"
             value={form.preferred_narrative_style}
@@ -195,25 +261,43 @@ function PersonaFormFields({
         <Field
           id="pf-section-order"
           label="Section Order"
-          hint="One section name per line. Controls the order sections appear in the briefing."
+          hint="Provide all four sections exactly once."
         >
-          <Textarea
-            id="pf-section-order"
-            value={form.section_order}
-            onChange={(e) => onChange({ section_order: e.target.value })}
-            className="min-h-24 font-mono text-sm"
-            placeholder={"Market Pulse\nClient-Relevant Signals\nGlobal Linkages\nTalking Points"}
-          />
+          <div className="space-y-2">
+            {form.section_order.map((row, index) => (
+              <div key={row._key} className="flex items-center gap-2">
+                <Input
+                  value={row.value}
+                  onChange={(e) => updateListField("section_order", index, e.target.value)}
+                  placeholder="Market Pulse"
+                />
+                {form.section_order.length > 1 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeListField("section_order", index)}
+                  >
+                    <Trash2Icon className="size-3.5" />
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={() => addListField("section_order")}>
+              <PlusIcon className="size-3" />
+              Add Row
+            </Button>
+          </div>
         </Field>
       </div>
 
-      {/* Category Weights */}
       <div className="space-y-4">
         <SectionHeading>Category Weights</SectionHeading>
         <p className="text-xs text-muted-foreground">
           Multipliers applied to each signal category when scoring relevance for this persona. 0 = exclude, 1 = neutral, &gt;1 = amplify.
         </p>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-4">
           {CATEGORY_WEIGHT_KEYS.map(({ key, label }) => (
             <Field key={key} id={`pf-${key}`} label={label}>
               <Input
@@ -221,7 +305,7 @@ function PersonaFormFields({
                 type="number"
                 min={0}
                 step={0.1}
-                value={form[key as keyof FormState]}
+                value={form[key]}
                 onChange={(e) => onChange({ [key]: e.target.value } as Partial<FormState>)}
                 placeholder="1.0"
               />
@@ -230,47 +314,108 @@ function PersonaFormFields({
         </div>
       </div>
 
-      {/* Rules */}
       <div className="space-y-4">
         <SectionHeading>Rules</SectionHeading>
         <Field
           id="pf-tone"
           label="Tone Rules"
-          hint="One rule per line."
+          hint="Add one rule per row."
         >
-          <Textarea
-            id="pf-tone"
-            value={form.tone_rules}
-            onChange={(e) => onChange({ tone_rules: e.target.value })}
-            className="min-h-24"
-            placeholder={"Always lead with portfolio-level impact.\nUse percentage moves, not direction words like 'up' or 'down'."}
-          />
+          <div className="space-y-2">
+            {form.tone_rules.map((row, index) => (
+              <div key={row._key} className="flex items-center gap-2">
+                <Input
+                  value={row.value}
+                  onChange={(e) => updateListField("tone_rules", index, e.target.value)}
+                  placeholder="Always lead with portfolio-level impact."
+                />
+                {form.tone_rules.length > 1 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeListField("tone_rules", index)}
+                  >
+                    <Trash2Icon className="size-3.5" />
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={() => addListField("tone_rules")}>
+              <PlusIcon className="size-3" />
+              Add Row
+            </Button>
+          </div>
         </Field>
         <Field
           id="pf-prohibited"
           label="Prohibited Claim Patterns"
-          hint="One pattern per line. These phrases are blocked from generated briefings."
+          hint="Add one pattern per row."
         >
-          <Textarea
-            id="pf-prohibited"
-            value={form.prohibited_claim_patterns}
-            onChange={(e) => onChange({ prohibited_claim_patterns: e.target.value })}
-            className="min-h-20"
-            placeholder={"guaranteed returns\nyou should definitely buy"}
-          />
+          <div className="space-y-2">
+            {form.prohibited_claim_patterns.map((row, index) => (
+              <div key={row._key} className="flex items-center gap-2">
+                <Input
+                  value={row.value}
+                  onChange={(e) => updateListField("prohibited_claim_patterns", index, e.target.value)}
+                  placeholder="guaranteed returns"
+                />
+                {form.prohibited_claim_patterns.length > 1 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeListField("prohibited_claim_patterns", index)}
+                  >
+                    <Trash2Icon className="size-3.5" />
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addListField("prohibited_claim_patterns")}
+            >
+              <PlusIcon className="size-3" />
+              Add Row
+            </Button>
+          </div>
         </Field>
         <Field
           id="pf-fallback"
           label="Fallback Rules"
-          hint="One rule per line. Applied when signal data is sparse or unavailable."
+          hint="Add one rule per row."
         >
-          <Textarea
-            id="pf-fallback"
-            value={form.fallback_rules}
-            onChange={(e) => onChange({ fallback_rules: e.target.value })}
-            className="min-h-20"
-            placeholder={"Fall back to macro commentary if fewer than 3 market signals are available."}
-          />
+          <div className="space-y-2">
+            {form.fallback_rules.map((row, index) => (
+              <div key={row._key} className="flex items-center gap-2">
+                <Input
+                  value={row.value}
+                  onChange={(e) => updateListField("fallback_rules", index, e.target.value)}
+                  placeholder="Fall back to macro commentary if fewer than 3 market signals are available."
+                />
+                {form.fallback_rules.length > 1 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeListField("fallback_rules", index)}
+                  >
+                    <Trash2Icon className="size-3.5" />
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={() => addListField("fallback_rules")}>
+              <PlusIcon className="size-3" />
+              Add Row
+            </Button>
+          </div>
         </Field>
       </div>
     </div>
@@ -326,12 +471,17 @@ export function PersonaManager({ personas: initialPersonas }: Props) {
   }
 
   async function handleSave() {
-    const payload = toPersona(form)
+    if (!isFormValid(form)) {
+      setSaveError("Complete all required fields and ensure section order contains each allowed section exactly once.")
+      return
+    }
+
+    const payload = buildPersonaPayload(form)
     setIsSaving(true)
     setSaveError(null)
     try {
       if (mode === "edit" && editingId) {
-        await updatePersona(editingId, payload)
+        await updatePersona(editingId, { ...payload, id: editingId })
       } else {
         await createPersona(payload)
       }
@@ -368,6 +518,7 @@ export function PersonaManager({ personas: initialPersonas }: Props) {
   }
 
   const sheetOpen = mode !== null
+  const canSave = isFormValid(form)
   const sheetTitle =
     mode === "edit"
       ? `Edit — ${initialPersonas.find((p) => p.id === editingId)?.label ?? editingId}`
@@ -533,28 +684,30 @@ export function PersonaManager({ personas: initialPersonas }: Props) {
             </div>
           )}
 
-          <SheetFooter className="border-t">
+          <SheetFooter className="border-t sm:justify-between">
             {saveError ? (
               <p className="w-full rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
                 {saveError}
               </p>
             ) : null}
-            <Button variant="outline" onClick={closeSheet} disabled={isSaving || isGenerating}>
-              Cancel
-            </Button>
-            {mode === "generate" && generateStep === "describe" ? (
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || !generateDescription.trim()}
-              >
-                <SparklesIcon className="size-3.5" />
-                {isGenerating ? "Generating..." : "Generate"}
+            <div className="flex w-full items-center justify-end gap-2">
+              <Button variant="outline" onClick={closeSheet} disabled={isSaving || isGenerating}>
+                Cancel
               </Button>
-            ) : (
-              <Button onClick={handleSave} disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save Persona"}
-              </Button>
-            )}
+              {mode === "generate" && generateStep === "describe" ? (
+                <Button
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !generateDescription.trim()}
+                >
+                  <SparklesIcon className="size-3.5" />
+                  {isGenerating ? "Generating..." : "Generate"}
+                </Button>
+              ) : (
+                <Button onClick={handleSave} disabled={isSaving || !canSave}>
+                  {isSaving ? "Saving..." : "Save Persona"}
+                </Button>
+              )}
+            </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>

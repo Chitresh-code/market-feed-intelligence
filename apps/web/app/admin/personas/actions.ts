@@ -4,13 +4,15 @@ import { revalidatePath } from "next/cache"
 
 import type { Persona } from "@/lib/poc-data"
 
+export type PersonaDraft = Omit<Persona, "id">
+
 const serviceBaseUrl = () => {
   const url = process.env.SERVICE_BASE_URL?.replace(/\/+$/, "")
   if (!url) throw new Error("SERVICE_BASE_URL is not configured.")
   return url
 }
 
-export async function createPersona(payload: Persona): Promise<Persona> {
+export async function createPersona(payload: PersonaDraft): Promise<Persona> {
   const response = await fetch(`${serviceBaseUrl()}/personas`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

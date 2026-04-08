@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,6 +18,17 @@ class PersonaRepository:
 
     def get_persona(self, persona_id: str) -> PersonaModel | None:
         return self.session.get(PersonaModel, persona_id)
+
+    def next_persona_id(self, label: str) -> str:
+        base = re.sub(r"[^a-z0-9]+", "_", label.strip().lower()).strip("_") or "persona"
+        existing_ids = set(self.session.scalars(select(PersonaModel.id)).all())
+        if base not in existing_ids:
+            return base
+
+        suffix = 2
+        while f"{base}_{suffix}" in existing_ids:
+            suffix += 1
+        return f"{base}_{suffix}"
 
     def upsert_persona(self, payload: PersonaConfig) -> PersonaModel:
         row = self.session.get(PersonaModel, payload.id)

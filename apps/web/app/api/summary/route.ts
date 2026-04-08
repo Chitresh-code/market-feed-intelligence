@@ -15,12 +15,14 @@ import { getSummaryContext } from "@/lib/poc-data"
 import type {
   SectionCompletedEvent,
   SectionFailedEvent,
+  SummaryRunState,
+  SummarySectionState,
   SectionStartedEvent,
   SummaryCompletedEvent,
   SummaryStartedEvent,
   SummaryStreamEvent,
 } from "@/lib/summary-stream"
-import type { SummarySectionId } from "@/lib/summary-sections"
+import { SUMMARY_SECTION_DEFINITIONS, type SummarySectionId } from "@/lib/summary-sections"
 
 function parseRequestBody(value: unknown): { customerId: string; date?: string } {
   if (!value || typeof value !== "object") {
@@ -81,6 +83,38 @@ function extractMessageText(
     .join("")
 }
 
+class LlmCompletionShapeError extends Error {
+  rawResponse: unknown
+
+  constructor(message: string, rawResponse: unknown) {
+    super(message)
+    this.name = "LlmCompletionShapeError"
+    this.rawResponse = rawResponse
+  }
+}
+
+function logRawLlmResponse(context: string, payload: unknown) {
+  try {
+    console.error(`${context} raw_response=${JSON.stringify(payload)}`)
+  } catch {
+    console.error(`${context} raw_response=[unserializable]`, payload)
+  }
+}
+
+function getCompletionChoice(
+  completion: OpenAI.Chat.Completions.ChatCompletion
+): OpenAI.Chat.Completions.ChatCompletion["choices"][number] {
+  const choice = completion.choices?.[0]
+  if (!choice) {
+    throw new LlmCompletionShapeError(
+      "LLM provider returned a completion without choices.",
+      completion
+    )
+  }
+
+  return choice
+}
+
 function endsAbruptly(value: string): boolean {
   if (!value) {
     return true
@@ -114,6 +148,49 @@ function buildCompletionParams(
   return base
 }
 
+function isTemperatureUnsupportedError(error: unknown): boolean {
+  if (!(error instanceof OpenAI.APIError)) {
+    return false
+  }
+
+  const param = "param" in error ? (error.param as string | null | undefined) : undefined
+  const message = error.message.toLowerCase()
+
+  return param === "temperature" || message.includes("temperature")
+}
+
+async function createCompletionWithFallback(input: {
+  client: OpenAI
+  model: string
+  temperature: number
+  messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+  reasoningEffort: string | undefined
+}): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+  try {
+    return await input.client.chat.completions.create(
+      buildCompletionParams(
+        input.model,
+        input.temperature,
+        input.messages,
+        input.reasoningEffort
+      )
+    )
+  } catch (error) {
+    if (!isTemperatureUnsupportedError(error)) {
+      throw error
+    }
+
+    return input.client.chat.completions.create(
+      buildCompletionParams(
+        input.model,
+        1,
+        input.messages,
+        input.reasoningEffort
+      )
+    )
+  }
+}
+
 function splitTalkingPointsForReveal(content: string): string[] {
   const normalized = content.replace(/\r\n/g, "\n")
   const chunks = normalized.match(/(?:^|\s+)([^.!?\n]+[.!?]+|[-*]\s[^\n]+|\d+\.\s[^\n]+|[^\n]+)(?:\n+|$)/gm)
@@ -132,6 +209,42 @@ function splitTalkingPointsForReveal(content: string): string[] {
   }
 
   return chunks.map((chunk) => chunk)
+}
+
+async function persistGeneration(input: {
+  customerId: string
+  cacheDate: string
+  generatedAt: string
+  run: SummaryRunState
+  sections: SummarySectionState[]
+}) {
+  const serviceBaseUrl = process.env.SERVICE_BASE_URL?.replace(/\/+$/, "")
+  if (!serviceBaseUrl) {
+    throw new Error("SERVICE_BASE_URL is not configured.")
+  }
+
+  const response = await fetch(
+    `${serviceBaseUrl}/generations/${input.cacheDate}/${input.customerId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+      body: JSON.stringify({
+        customer_id: input.customerId,
+        cache_date: input.cacheDate,
+        generated_at: input.generatedAt,
+        run: input.run,
+        sections: input.sections,
+      }),
+    }
+  )
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "")
+    throw new Error(`Failed to persist generation: ${response.status} ${body || response.statusText}`)
+  }
 }
 
 type SectionResult =
@@ -201,22 +314,32 @@ export async function POST(request: Request) {
               { role: "user", content: prompts.userPrompt },
             ]
 
-            const completion = await client.chat.completions.create(
-              buildCompletionParams(model, profile.temperature, messages, llmRequestOptions.reasoningEffort)
-            )
+            const completion = await createCompletionWithFallback({
+              client,
+              model,
+              temperature: profile.temperature,
+              messages,
+              reasoningEffort: llmRequestOptions.reasoningEffort,
+            })
+            const choice = getCompletionChoice(completion)
 
             let finalContent = stripReasoningTags(
-              extractMessageText(completion.choices[0]?.message?.content).trim()
+              extractMessageText(choice.message?.content).trim()
             ).trim()
-            const finishReason = completion.choices[0]?.finish_reason ?? null
+            const finishReason = choice.finish_reason ?? null
 
             if (shouldRetryCompletion(finalContent, finishReason)) {
-              const retry = await client.chat.completions.create(
-                buildCompletionParams(model, profile.temperature, messages, llmRequestOptions.reasoningEffort)
-              )
+              const retry = await createCompletionWithFallback({
+                client,
+                model,
+                temperature: profile.temperature,
+                messages,
+                reasoningEffort: llmRequestOptions.reasoningEffort,
+              })
+              const retryChoice = getCompletionChoice(retry)
 
               const retriedContent = stripReasoningTags(
-                extractMessageText(retry.choices[0]?.message?.content).trim()
+                extractMessageText(retryChoice.message?.content).trim()
               ).trim()
 
               if (retriedContent.length > finalContent.length) {
@@ -240,6 +363,12 @@ export async function POST(request: Request) {
           } catch (error) {
             const failedAt = new Date().toISOString()
             const errorMessage = error instanceof Error ? error.message : "Section generation failed."
+            if (error instanceof LlmCompletionShapeError) {
+              logRawLlmResponse(
+                `[summary] section "${profile.id}" provider-shape-error requestId=${requestId} customerId=${body.customerId}`,
+                error.rawResponse
+              )
+            }
             console.error(
               `[summary] section "${profile.id}" failed requestId=${requestId} customerId=${body.customerId}`,
               error
@@ -259,6 +388,7 @@ export async function POST(request: Request) {
         const resultBySection = Object.fromEntries(
           results.map((result) => [result.sectionId, result])
         ) as Record<SummarySectionId, SectionResult>
+        let talkingPointsRendered = ""
 
         const talkingPointsResult = resultBySection["talking-points"]
         if (talkingPointsResult.status === "completed") {
@@ -283,6 +413,7 @@ export async function POST(request: Request) {
             })
             await sleep(45)
           }
+          talkingPointsRendered = rendered.trim()
 
           const revealedAt = new Date().toISOString()
           send({
@@ -290,7 +421,7 @@ export async function POST(request: Request) {
             data: {
               sectionId: "talking-points",
               title: talkingPointsResult.title,
-              content: rendered.trim(),
+              content: talkingPointsRendered,
               startedAt: revealStartedAt,
               firstTokenAt,
               completedAt: revealedAt,
@@ -344,13 +475,72 @@ export async function POST(request: Request) {
         }
 
         const completedAt = new Date().toISOString()
+        const finalRunState: SummaryRunState = {
+          requestId,
+          status: results.some((result) => result.status === "failed") ? "failed" : "completed",
+          startedAt: summaryStartedAt,
+          completedAt,
+          totalDurationMs: new Date(completedAt).getTime() - new Date(summaryStartedAt).getTime(),
+          error:
+            results.find((result) => result.status === "failed")?.error ?? null,
+        }
+        const finalSections: SummarySectionState[] = SUMMARY_SECTION_DEFINITIONS.map((definition) => {
+          const result = resultBySection[definition.id]
+          if (result.status === "completed") {
+            return {
+              sectionId: definition.id,
+              title: result.title,
+              status: "completed",
+              content:
+                definition.id === "talking-points" ? talkingPointsRendered : result.content,
+              error: null,
+              timing: {
+                startedAt: result.startedAt,
+                firstTokenAt: definition.id === "talking-points" ? result.startedAt : null,
+                completedAt: result.completedAt,
+                firstTokenLatencyMs: definition.id === "talking-points" ? 0 : null,
+                totalDurationMs: result.totalDurationMs,
+              },
+            }
+          }
+
+          return {
+            sectionId: definition.id,
+            title: result.title,
+            status: "failed",
+            content: "",
+            error: result.error,
+            timing: {
+              startedAt: result.startedAt,
+              firstTokenAt: null,
+              completedAt: result.failedAt,
+              firstTokenLatencyMs: null,
+              totalDurationMs: null,
+            },
+          }
+        })
+
+        try {
+          await persistGeneration({
+            customerId: body.customerId,
+            cacheDate: summaryContext.cacheDate,
+            generatedAt: completedAt,
+            run: finalRunState,
+            sections: finalSections,
+          })
+        } catch (error) {
+          console.error(
+            `[summary] failed to persist generation requestId=${requestId} customerId=${body.customerId}`,
+            error
+          )
+        }
+
         send({
           type: "summary.completed",
           data: {
             requestId,
             completedAt,
-            totalDurationMs:
-              new Date(completedAt).getTime() - new Date(summaryStartedAt).getTime(),
+            totalDurationMs: finalRunState.totalDurationMs ?? 0,
           } satisfies SummaryCompletedEvent,
         })
 

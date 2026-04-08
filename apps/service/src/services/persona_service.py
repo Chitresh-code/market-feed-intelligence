@@ -25,5 +25,8 @@ class PersonaService:
         return self.repository.to_model(row)
 
     def create_persona(self, payload: PersonaConfig) -> PersonaConfig:
-        row = self.repository.upsert_persona(payload)
+        normalized = payload.model_copy(
+            update={"id": payload.id.strip() or self.repository.next_persona_id(payload.label)}
+        )
+        row = self.repository.upsert_persona(normalized)
         return self.repository.to_model(row)
