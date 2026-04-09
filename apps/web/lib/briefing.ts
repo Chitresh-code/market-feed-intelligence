@@ -347,6 +347,7 @@ export function renderPromptProfile(
 export function createLlmClient(): OpenAI {
   const apiKey = process.env.LLM_API_KEY
   const baseURL = process.env.LLM_BASE_URL
+  const configuredTimeout = Number.parseInt(process.env.LLM_TIMEOUT_MS ?? "", 10)
 
   if (!apiKey) {
     throw new Error("LLM_API_KEY is not configured.")
@@ -355,7 +356,7 @@ export function createLlmClient(): OpenAI {
   return new OpenAI({
     apiKey,
     baseURL,
-    timeout: 60_000,
+    timeout: Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 180_000,
   })
 }
 
